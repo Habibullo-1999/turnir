@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚽ Football Tournament</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0e0a;
+    --surface: #111811;
+    --card: #162016;
+    --border: #1e2e1e;
+    --green: #22c55e;
+    --green-dim: #16a34a;
+    --green-glow: rgba(34, 197, 94, 0.15);
+    --text: #e8f5e8;
+    --text-muted: #6b8a6b;
+    --text-dim: #4a6a4a;
+    --red: #ef4444;
+    --gold: #fbbf24;
+    --lucky: #f97316;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    padding-bottom: 60px;
+  }
+
+  header {
+    background: linear-gradient(135deg, #0d1a0d, #0f2010);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+  header h1 {
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--green);
+    text-shadow: 0 0 20px rgba(34,197,94,0.4);
+  }
+  header p { color: var(--text-muted); font-size: 0.8rem; margin-top: 4px; }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .card-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--green);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    display: block;
+    width: 3px; height: 14px;
+    background: var(--green);
+    border-radius: 2px;
+  }
+
+  input[type="text"], textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    resize: vertical;
+  }
+  input[type="text"]:focus, textarea:focus {
+    border-color: var(--green-dim);
+    box-shadow: 0 0 0 3px var(--green-glow);
+  }
+  textarea { min-height: 140px; line-height: 1.7; }
+
+  .field-hint { font-size: 0.75rem; color: var(--text-dim); margin-top: 6px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--green), var(--green-dim));
+    color: #000;
+    width: 100%;
+    font-size: 1rem;
+    padding: 14px;
+    box-shadow: 0 4px 20px rgba(34,197,94,0.25);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(34,197,94,0.4); }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-secondary {
+    background: rgba(249,115,22,0.12);
+    color: var(--lucky);
+    border: 1px solid rgba(249,115,22,0.3);
+    font-size: 0.85rem;
+    padding: 9px 18px;
+  }
+  .btn-secondary:hover { background: rgba(249,115,22,0.22); }
+
+  .btn-reset {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+    padding: 8px 16px;
+  }
+  .btn-reset:hover { border-color: var(--red); color: var(--red); }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .btn-row .btn-primary { flex: 1; }
+
+  #participants-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .tag {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .tag.bye { border-color: var(--text-dim); color: var(--text-dim); font-style: italic; }
+
+  /* SAVE INDICATOR */
+  #save-indicator {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-align: right;
+    margin-top: 6px;
+    transition: color 0.3s;
+  }
+  #save-indicator.saved { color: var(--green); }
+
+  #bracket-section { display: none; }
+
+  .bracket-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .bracket-title { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+  .bracket-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+
+  .bracket-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .bracket-scroll { overflow-x: auto; padding-bottom: 10px; }
+
+  .bracket {
+    display: flex;
+    gap: 0;
+    min-width: max-content;
+    align-items: flex-start;
+    padding-top: 8px;
+  }
+
+  .round-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 200px;
+  }
+  .round-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--green);
+    margin-bottom: 12px;
+    text-align: center;
+    padding: 4px 10px;
+    background: var(--green-glow);
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .round-matches { display: flex; flex-direction: column; width: 100%; }
+
+  .match-wrapper { display: flex; align-items: center; }
+
+  .match-slot {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    width: 190px;
+    transition: border-color 0.2s;
+  }
+  .match-slot.active { border-color: var(--green-dim); }
+  .match-slot.done { border-color: #1d3a1d; }
+
+  .match-team {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    gap: 8px;
+    transition: background 0.15s;
+    min-height: 42px;
+  }
+  .match-team + .match-team { border-top: 1px solid var(--border); }
+  .match-team.winner { background: rgba(34,197,94,0.12); }
+  .match-team.loser { opacity: 0.4; }
+  .match-team.bye-slot { opacity: 0.3; font-style: italic; }
+  .match-team.lucky { background: rgba(249,115,22,0.08); }
+
+  .team-name {
+    flex: 1;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90px;
+  }
+  .lucky-badge {
+    font-size: 0.6rem;
+    background: rgba(249,115,22,0.2);
+    color: var(--lucky);
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .team-score-input {
+    width: 36px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 3px;
+    outline: none;
+    font-family: inherit;
+  }
+  .team-score-input:focus { border-color: var(--green); box-shadow: 0 0 0 2px var(--green-glow); }
+
+  .score-display {
+    width: 28px;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+  .score-display.winner-score { color: var(--green); }
+
+  .confirm-btn {
+    width: 100%;
+    background: var(--green-glow);
+    border: none;
+    border-top: 1px solid var(--border);
+    color: var(--green);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.5px;
+    transition: background 0.2s;
+  }
+  .confirm-btn:hover { background: rgba(34,197,94,0.2); }
+
+  /* LUCKY LOSER LEGEND */
+  .lucky-legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--lucky);
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: rgba(249,115,22,0.06);
+    border: 1px solid rgba(249,115,22,0.15);
+    border-radius: 8px;
+  }
+
+  #winner-section {
+    display: none;
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .trophy {
+    font-size: 5rem;
+    animation: bounce 1s ease infinite alternate;
+    display: block;
+    margin-bottom: 16px;
+  }
+  @keyframes bounce {
+    from { transform: translateY(0) scale(1); }
+    to { transform: translateY(-10px) scale(1.05); }
+  }
+  .winner-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .winner-name {
+    font-size: clamp(2rem, 8vw, 3.5rem);
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--gold), #f59e0b, var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -1px;
+    line-height: 1.1;
+  }
+  .winner-sub { color: var(--text-muted); font-size: 0.9rem; margin-top: 12px; }
+
+  .confetti-container {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 999;
+  }
+  .confetti-piece {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+
+  @media (max-width: 600px) {
+    .round-col { min-width: 170px; }
+    .match-slot { width: 160px; }
+    .team-name { max-width: 70px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚽ Football Tournament</h1>
+  <p>Личный турнир с друзьями</p>
+</header>
+
+<div class="container">
+
+  <div class="card" id="setup-card">
+    <div class="card-title">Настройка турнира</div>
+    <input type="text" id="tournament-name" placeholder="Название турнира (напр. Летний кубок 2026)" />
+
+    <div style="margin-top:14px;">
+      <textarea id="participants-input" placeholder="Участники (каждый с новой строки)"></textarea>
+      <div class="field-hint">Минимум 2 участника. Лучший проигравший из предыдущего раунда займёт место BYE в следующем.</div>
+    </div>
+
+    <div id="participants-preview" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="createBracket()">⚡ Создать сетку</button>
+    </div>
+    <div id="save-indicator">Нет сохранённого турнира</div>
+  </div>
+
+  <div class="card" id="bracket-section">
+    <div class="bracket-header">
+      <div>
+        <div class="bracket-title" id="bracket-title">Турнирная сетка</div>
+        <div class="bracket-subtitle" id="bracket-subtitle"></div>
+      </div>
+      <div class="bracket-actions">
+        <button class="btn btn-secondary" onclick="reshuffleBracket()" id="reshuffle-btn" title="Перемешать заново (сбросит все результаты)">🔀 Рефреш</button>
+        <button class="btn btn-reset" onclick="resetTournament()">✕ Сброс</button>
+      </div>
+    </div>
+    <div id="lucky-legend" class="lucky-legend" style="display:none;">
+      🍀 <strong>Lucky Loser</strong> — лучший проигравший из предыдущего раунда по разнице голов
+    </div>
+    <div class="bracket-scroll" style="margin-top:16px;">
+      <div class="bracket" id="bracket"></div>
+    </div>
+  </div>
+
+  <div class="card" id="winner-section">
+    <span class="trophy">🏆</span>
+    <div class="winner-label">Победитель турнира</div>
+    <div class="winner-name" id="winner-name"></div>
+    <div class="winner-sub" id="winner-sub"></div>
+    <div style="margin-top:24px;">
+      <button class="btn btn-reset" onclick="resetTournament()">🔁 Новый турнир</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="confetti-container" id="confetti-container"></div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+// rounds[r][m] = { t1, t2, score1, score2, winner, t1Lucky, t2Lucky }
+let state = { name: '', players: [], rounds: [], roundLabels: [] };
+
+const STORAGE_KEY = 'ft_state_v2';
+
+// ─── PERSISTENCE ─────────────────────────────────────────────────────────────
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const el = document.getElementById('save-indicator');
+    el.textContent = '💾 Сохранено: ' + new Date().toLocaleTimeString('ru');
+    el.className = 'saved';
+    setTimeout(() => { el.className = ''; }, 2000);
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const saved = JSON.parse(raw);
+    if (!saved.rounds || !saved.rounds.length) return false;
+    state = saved;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ─── LIVE PREVIEW ─────────────────────────────────────────────────────────────
+document.getElementById('participants-input').addEventListener('input', updatePreview);
+
+function getNames() {
+  return document.getElementById('participants-input').value
+    .split('\n').map(s => s.trim()).filter(Boolean);
+}
+
+function updatePreview() {
+  const names = getNames();
+  const el = document.getElementById('participants-preview');
+  el.innerHTML = '';
+  if (!names.length) return;
+  names.forEach(n => {
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = n;
+    el.appendChild(tag);
+  });
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function nextPow2(n) { let p = 1; while (p < n) p <<= 1; return p; }
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function getRoundLabel(totalRounds, roundIdx) {
+  const fromEnd = totalRounds - 1 - roundIdx;
+  if (fromEnd === 0) return 'Финал';
+  if (fromEnd === 1) return 'Полуфинал';
+  if (fromEnd === 2) return 'Четвертьфинал';
+  if (fromEnd === 3) return '1/8 финала';
+  if (fromEnd === 4) return '1/16 финала';
+  return `Раунд ${roundIdx + 1}`;
+}
+
+function isByeMatch(m) { return m.t1 === 'BYE' && m.t2 === 'BYE'; }
+function isRealMatch(m) { return m.t1 && m.t2 && m.t1 !== 'BYE' && m.t2 !== 'BYE'; }
+
+// ─── BUILD ROUNDS FROM SEEDED LIST ────────────────────────────────────────────
+function buildRounds(seeded) {
+  const size = seeded.length; // already power of 2
+  const totalRounds = Math.log2(size);
+  const roundLabels = [];
+  for (let r = 0; r < totalRounds; r++) roundLabels.push(getRoundLabel(totalRounds, r));
+
+  const firstRound = [];
+  for (let i = 0; i < size; i += 2) {
+    const m = { t1: seeded[i], t2: seeded[i+1], score1: null, score2: null, winner: null, t1Lucky: false, t2Lucky: false };
+    if (m.t2 === 'BYE') { m.winner = m.t1; }
+    else if (m.t1 === 'BYE') { m.winner = m.t2; }
+    firstRound.push(m);
+  }
+
+  const rounds = [firstRound];
+  for (let r = 1; r < totalRounds; r++) {
+    const prevCount = rounds[r-1].length;
+    const round = [];
+    for (let m = 0; m < prevCount / 2; m++) {
+      round.push({ t1: null, t2: null, score1: null, score2: null, winner: null, t1Lucky: false, t2Lucky: false });
+    }
+    rounds.push(round);
+  }
+  return { rounds, roundLabels };
+}
+
+// ─── CREATE BRACKET ───────────────────────────────────────────────────────────
+function createBracket() {
+  const names = getNames();
+  if (names.length < 2) { alert('Введите минимум 2 участника.'); return; }
+
+  const size = nextPow2(names.length);
+  const seeded = shuffle(names);
+  while (seeded.length < size) seeded.push('BYE');
+
+  const { rounds, roundLabels } = buildRounds(seeded);
+  state = {
+    name: document.getElementById('tournament-name').value.trim() || 'Турнир',
+    players: names,
+    rounds,
+    roundLabels
+  };
+
+  propagateWinners();
+  saveState();
+  showBracket(names.length, rounds.length);
+}
+
+// ─── RESHUFFLE (keep players, reset scores) ───────────────────────────────────
+function reshuffleBracket() {
+  if (!state.players.length) return;
+  if (!confirm('Перемешать участников заново? Все результаты сбросятся.')) return;
+
+  const size = nextPow2(state.players.length);
+  const seeded = shuffle(state.players);
+  while (seeded.length < size) seeded.push('BYE');
+
+  const { rounds, roundLabels } = buildRounds(seeded);
+  state.rounds = rounds;
+  state.roundLabels = roundLabels;
+
+  document.getElementById('winner-section').style.display = 'none';
+  document.getElementById('confetti-container').innerHTML = '';
+
+  propagateWinners();
+  saveState();
+  renderBracket();
+}
+
+// ─── PROPAGATE WINNERS + LUCKY LOSER ─────────────────────────────────────────
+function propagateWinners() {
+  for (let r = 0; r < state.rounds.length - 1; r++) {
+    const round = state.rounds[r];
+    const next  = state.rounds[r + 1];
+
+    // luckySlots[nm] = [slot0IsPending, slot1IsPending]
+    // Slots that came from BYE-vs-BYE and need a lucky loser, NOT normal auto-advance
+    const luckySlots = {};
+
+    // First pass: propagate winners, flag lucky slots
+    for (let m = 0; m < round.length; m++) {
+      const match     = round[m];
+      const nm        = Math.floor(m / 2);
+      const slot      = m % 2;
+      const nextMatch = next[nm];
+
+      if (!luckySlots[nm]) luckySlots[nm] = [false, false];
+      if (!match.winner) continue;
+      if (nextMatch.winner !== null) continue; // match already played, leave it alone
+
+      if (isByeMatch(match)) {
+        // BYE vs BYE: reserve this slot for a lucky loser, don't put BYE here
+        luckySlots[nm][slot] = true;
+        if (slot === 0) { nextMatch.t1 = null; nextMatch.t1Lucky = false; }
+        else            { nextMatch.t2 = null; nextMatch.t2Lucky = false; }
+      } else {
+        if (slot === 0) { nextMatch.t1 = match.winner; nextMatch.t1Lucky = false; }
+        else            { nextMatch.t2 = match.winner; nextMatch.t2Lucky = false; }
+      }
+    }
+
+    // Auto-advance ONLY for matches with no pending lucky slots
+    next.forEach((match, nm) => {
+      if (match.winner !== null) return;
+      const pending = luckySlots[nm] || [false, false];
+      if (pending[0] || pending[1]) return; // wait — lucky loser must fill first
+      if (match.t1 && match.t2) {
+        if (match.t2 === 'BYE') match.winner = match.t1;
+        else if (match.t1 === 'BYE') match.winner = match.t2;
+      }
+    });
+
+    // Lucky loser: runs only once ALL real matches in this round are finished
+    const realMatches = round.filter(isRealMatch);
+    const allRealDone = realMatches.length > 0 && realMatches.every(m => m.winner !== null);
+    const hasPending  = Object.values(luckySlots).some(p => p[0] || p[1]);
+
+    if (allRealDone && hasPending) {
+      const losers = realMatches
+        .map(m => {
+          const loserIsT2    = (m.winner === m.t1);
+          const loserName    = loserIsT2 ? m.t2 : m.t1;
+          const goalsFor     = loserIsT2 ? (m.score2 || 0) : (m.score1 || 0);
+          const goalsAgainst = loserIsT2 ? (m.score1 || 0) : (m.score2 || 0);
+          return { name: loserName, diff: goalsFor - goalsAgainst, scored: goalsFor };
+        })
+        .sort((a, b) => b.diff - a.diff || b.scored - a.scored);
+
+      let li = 0;
+      Object.entries(luckySlots).forEach(([nmStr, slots]) => {
+        const nm    = parseInt(nmStr);
+        const match = next[nm];
+        if (match.winner !== null) return;
+        for (let s = 0; s < 2; s++) {
+          if (slots[s] && li < losers.length) {
+            if (s === 0) { match.t1 = losers[li].name; match.t1Lucky = true; }
+            else         { match.t2 = losers[li].name; match.t2Lucky = true; }
+            li++;
+          }
+        }
+        // Re-check auto-advance now that the slot is a real player
+        if (!match.winner && match.t1 && match.t2) {
+          if (match.t1 === 'BYE') match.winner = match.t2;
+          else if (match.t2 === 'BYE') match.winner = match.t1;
+        }
+      });
+    }
+  }
+}
+
+// ─── SHOW BRACKET UI ──────────────────────────────────────────────────────────
+function showBracket(playerCount, totalRounds) {
+  document.getElementById('bracket-section').style.display = 'block';
+  document.getElementById('bracket-title').textContent = state.name;
+  document.getElementById('bracket-subtitle').textContent =
+    `${playerCount} участников · ${totalRounds} раундов`;
+  renderBracket();
+  document.getElementById('bracket-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function renderBracket() {
+  const bracketEl = document.getElementById('bracket');
+  bracketEl.innerHTML = '';
+
+  const totalRounds = state.rounds.length;
+  let hasLucky = false;
+
+  state.rounds.forEach((round, rIdx) => {
+    const col = document.createElement('div');
+    col.className = 'round-col';
+
+    const label = document.createElement('div');
+    label.className = 'round-label';
+    label.textContent = state.roundLabels[rIdx];
+    col.appendChild(label);
+
+    const matchesDiv = document.createElement('div');
+    matchesDiv.className = 'round-matches';
+
+    const spacerH = Math.pow(2, rIdx) * 10;
+
+    round.forEach((match, mIdx) => {
+      if (mIdx > 0) {
+        const sp = document.createElement('div');
+        sp.style.height = spacerH + 'px';
+        matchesDiv.appendChild(sp);
+      }
+      if (match.t1Lucky || match.t2Lucky) hasLucky = true;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'match-wrapper';
+      wrapper.appendChild(buildMatchSlot(match, rIdx, mIdx));
+      matchesDiv.appendChild(wrapper);
+    });
+
+    col.appendChild(matchesDiv);
+    bracketEl.appendChild(col);
+
+    if (rIdx < totalRounds - 1) {
+      const gap = document.createElement('div');
+      gap.style.cssText = 'width:24px;flex-shrink:0;';
+      bracketEl.appendChild(gap);
+    }
+  });
+
+  document.getElementById('lucky-legend').style.display = hasLucky ? 'flex' : 'none';
+
+  const finalMatch = state.rounds[state.rounds.length - 1][0];
+  if (finalMatch.winner && finalMatch.winner !== 'BYE') {
+    showWinner(finalMatch.winner);
+  }
+}
+
+function buildMatchSlot(match, rIdx, mIdx) {
+  const slot = document.createElement('div');
+  const isDone   = match.winner !== null;
+  const isActive = match.t1 && match.t2 && match.t1 !== 'BYE' && match.t2 !== 'BYE' && !isDone;
+
+  slot.className = 'match-slot' + (isDone ? ' done' : '') + (isActive ? ' active' : '');
+  slot.appendChild(buildTeamRow(match, 1, rIdx, mIdx));
+  slot.appendChild(buildTeamRow(match, 2, rIdx, mIdx));
+
+  if (isActive) {
+    const btn = document.createElement('button');
+    btn.className = 'confirm-btn';
+    btn.textContent = 'Подтвердить ✓';
+    btn.onclick = () => confirmMatch(rIdx, mIdx);
+    slot.appendChild(btn);
+  }
+  return slot;
+}
+
+function buildTeamRow(match, teamNum, rIdx, mIdx) {
+  const row     = document.createElement('div');
+  const name    = teamNum === 1 ? match.t1 : match.t2;
+  const score   = teamNum === 1 ? match.score1 : match.score2;
+  const isLucky = teamNum === 1 ? match.t1Lucky : match.t2Lucky;
+  const isBye   = name === 'BYE';
+  const isDone  = match.winner !== null;
+  const isWinner = isDone && match.winner === name && !isBye;
+  const isLoser  = isDone && !isWinner && name && !isBye;
+
+  row.className = 'match-team' +
+    (isWinner ? ' winner' : '') +
+    (isLoser  ? ' loser'  : '') +
+    (isBye    ? ' bye-slot' : '') +
+    (isLucky && !isDone ? ' lucky' : '');
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'team-name';
+  nameEl.textContent = name || '—';
+  row.appendChild(nameEl);
+
+  if (isLucky && !isDone) {
+    const badge = document.createElement('span');
+    badge.className = 'lucky-badge';
+    badge.textContent = '🍀 LL';
+    row.appendChild(badge);
+  }
+
+  if (isDone) {
+    const isByeMatch_ = match.t1 === 'BYE' || match.t2 === 'BYE';
+    const scoreEl = document.createElement('span');
+    scoreEl.className = 'score-display' + (isWinner ? ' winner-score' : '');
+    scoreEl.textContent = (!isByeMatch_ && score !== null) ? score : '';
+    row.appendChild(scoreEl);
+  } else if (match.t1 && match.t2 && name && name !== 'BYE') {
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = 0; input.max = 99;
+    input.className = 'team-score-input';
+    input.placeholder = '0';
+    input.id = `score-r${rIdx}-m${mIdx}-t${teamNum}`;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') confirmMatch(rIdx, mIdx); });
+    row.appendChild(input);
+  }
+
+  return row;
+}
+
+// ─── CONFIRM MATCH ────────────────────────────────────────────────────────────
+function confirmMatch(rIdx, mIdx) {
+  const match = state.rounds[rIdx][mIdx];
+  const s1 = parseInt(document.getElementById(`score-r${rIdx}-m${mIdx}-t1`)?.value);
+  const s2 = parseInt(document.getElementById(`score-r${rIdx}-m${mIdx}-t2`)?.value);
+
+  if (isNaN(s1) || isNaN(s2)) { alert('Введите счёт для обеих команд.'); return; }
+  if (s1 === s2) { alert('Ничья не допускается. Введите разные числа.'); return; }
+
+  match.score1 = s1;
+  match.score2 = s2;
+  match.winner = s1 > s2 ? match.t1 : match.t2;
+
+  propagateWinners();
+  saveState();
+  renderBracket();
+}
+
+// ─── WINNER ───────────────────────────────────────────────────────────────────
+function showWinner(name) {
+  document.getElementById('winner-name').textContent = name;
+  document.getElementById('winner-sub').textContent = `🏆 Чемпион турнира «${state.name}»`;
+  const sec = document.getElementById('winner-section');
+  sec.style.display = 'block';
+  sec.scrollIntoView({ behavior: 'smooth' });
+  launchConfetti();
+}
+
+function launchConfetti() {
+  const container = document.getElementById('confetti-container');
+  container.innerHTML = '';
+  const colors = ['#22c55e','#fbbf24','#ef4444','#3b82f6','#a855f7','#f97316'];
+  for (let i = 0; i < 90; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.animationDuration = (1.5 + Math.random() * 2.5) + 's';
+    p.style.animationDelay = (Math.random() * 2) + 's';
+    const sz = (6 + Math.random() * 8) + 'px';
+    p.style.width = sz; p.style.height = sz;
+    container.appendChild(p);
+  }
+  setTimeout(() => { container.innerHTML = ''; }, 6000);
+}
+
+// ─── RESET ────────────────────────────────────────────────────────────────────
+function resetTournament() {
+  if (!confirm('Сбросить турнир полностью?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  state = { name: '', players: [], rounds: [], roundLabels: [] };
+  document.getElementById('bracket-section').style.display = 'none';
+  document.getElementById('winner-section').style.display = 'none';
+  document.getElementById('confetti-container').innerHTML = '';
+  document.getElementById('bracket').innerHTML = '';
+  document.getElementById('participants-preview').innerHTML = '';
+  document.getElementById('tournament-name').value = '';
+  document.getElementById('participants-input').value = '';
+  document.getElementById('save-indicator').textContent = 'Нет сохранённого турнира';
+  document.getElementById('save-indicator').className = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(function init() {
+  if (loadState()) {
+    // Restore UI fields
+    document.getElementById('tournament-name').value = state.name || '';
+    document.getElementById('participants-input').value = (state.players || []).join('\n');
+    updatePreview();
+
+    const playerCount = state.players.length;
+    const totalRounds = state.rounds.length;
+    showBracket(playerCount, totalRounds);
+
+    document.getElementById('save-indicator').textContent =
+      '💾 Загружен сохранённый турнир';
+    document.getElementById('save-indicator').className = 'saved';
+
+    // Show winner if already decided
+    const finalMatch = state.rounds[state.rounds.length - 1][0];
+    if (finalMatch.winner && finalMatch.winner !== 'BYE') {
+      showWinner(finalMatch.winner);
+    }
+  } else {
+    updatePreview();
+  }
+})();
+</script>
+</body>
+</html>
