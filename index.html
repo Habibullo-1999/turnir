@@ -532,28 +532,61 @@
 // rounds[r][m] = { t1, t2, score1, score2, winner, t1Lucky, t2Lucky }
 let state = { name: '', players: [], rounds: [], roundLabels: [] };
 
-const STORAGE_KEY = 'ft_state_v2';
+// ─── GOOGLE SHEETS CONFIG ────────────────────────────────────────────────────
+// Вставь сюда URL своего Apps Script Web App:
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxEX-sJz1YcfHTF_Nz9JXsITrf2rcBHe1XBo7evhmIiCi7XxkiT8txSHEPvkw0cuLmAnQ/exec';
+
+const USE_SHEETS = SHEETS_URL.startsWith('https://script.google.com/macros/s/');
 
 // ─── PERSISTENCE ─────────────────────────────────────────────────────────────
-function saveState() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    const el = document.getElementById('save-indicator');
-    el.textContent = '💾 Сохранено: ' + new Date().toLocaleTimeString('ru');
-    el.className = 'saved';
-    setTimeout(() => { el.className = ''; }, 2000);
-  } catch(e) {}
+function setSaveIndicator(text, ok = false) {
+  const el = document.getElementById('save-indicator');
+  el.textContent = text;
+  el.className = ok ? 'saved' : '';
+  if (ok) setTimeout(() => { el.className = ''; }, 2500);
 }
 
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return false;
-    const saved = JSON.parse(raw);
-    if (!saved.rounds || !saved.rounds.length) return false;
-    state = saved;
-    return true;
-  } catch(e) { return false; }
+// Сохранение через GET чтобы избежать потери тела на redirect у Apps Script
+function sheetsGet(params) {
+  const url = SHEETS_URL + '?' + new URLSearchParams(params).toString();
+  return fetch(url);
+}
+
+function saveState() {
+  if (USE_SHEETS) {
+    sheetsGet({ action: 'saveState', data: JSON.stringify(state) })
+      .then(() => setSaveIndicator('☁️ Сохранено ' + new Date().toLocaleTimeString('ru'), true))
+      .catch(() => setSaveIndicator('⚠️ Ошибка сохранения'));
+  } else {
+    try {
+      localStorage.setItem('ft_state_v2', JSON.stringify(state));
+      setSaveIndicator('💾 Сохранено: ' + new Date().toLocaleTimeString('ru'), true);
+    } catch(e) {}
+  }
+}
+
+async function loadState() {
+  if (USE_SHEETS) {
+    try {
+      setSaveIndicator('☁️ Загрузка...');
+      const res  = await sheetsGet({ action: 'loadState' });
+      const text = await res.text();
+      const saved = JSON.parse(text);
+      if (!saved || !saved.rounds || !saved.rounds.length) { setSaveIndicator(''); return false; }
+      state = saved;
+      setSaveIndicator('☁️ Загружено из Google Sheets', true);
+      return true;
+    } catch(e) { setSaveIndicator('⚠️ Не удалось загрузить'); return false; }
+  } else {
+    try {
+      const raw = localStorage.getItem('ft_state_v2');
+      if (!raw) return false;
+      const saved = JSON.parse(raw);
+      if (!saved.rounds || !saved.rounds.length) return false;
+      state = saved;
+      return true;
+    } catch(e) { return false; }
+  }
 }
 
 // ─── LIVE PREVIEW ─────────────────────────────────────────────────────────────
@@ -936,7 +969,8 @@ function launchConfetti() {
 // ─── RESET ────────────────────────────────────────────────────────────────────
 function resetTournament() {
   if (!confirm('Сбросить турнир полностью?')) return;
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem('ft_state_v2');
+  if (USE_SHEETS) sheetsGet({ action: 'saveState', data: 'null' }).catch(() => {});
   state = { name: '', players: [], rounds: [], roundLabels: [] };
   document.getElementById('bracket-section').style.display = 'none';
   document.getElementById('winner-section').style.display = 'none';
@@ -951,21 +985,36 @@ function resetTournament() {
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
-const HISTORY_KEY = 'ft_history_v1';
-
-function loadHistory() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+function saveToHistory(entry) {
+  if (USE_SHEETS) {
+    sheetsGet({ action: 'saveHistory', data: JSON.stringify(entry) }).catch(() => {});
+  } else {
+    try {
+      const history = JSON.parse(localStorage.getItem('ft_history_v1') || '[]');
+      if (!history.find(h => h.id === entry.id)) history.push(entry);
+      localStorage.setItem('ft_history_v1', JSON.stringify(history));
+    } catch(e) {}
+  }
 }
 
-function saveToHistory(entry) {
-  const history = loadHistory();
-  history.push(entry);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+async function loadHistoryData() {
+  if (USE_SHEETS) {
+    try {
+      const res = await fetch(`${SHEETS_URL}?action=loadHistory`);
+      return JSON.parse(await res.text());
+    } catch { return []; }
+  } else {
+    try { return JSON.parse(localStorage.getItem('ft_history_v1') || '[]'); } catch { return []; }
+  }
 }
 
 function clearHistory() {
   if (!confirm('Очистить всю историю турниров?')) return;
-  localStorage.removeItem(HISTORY_KEY);
+  if (USE_SHEETS) {
+    alert('Очистка истории в Google Sheets: удали строки вручную на листе History.');
+    return;
+  }
+  localStorage.removeItem('ft_history_v1');
   renderHistory();
 }
 
@@ -1005,8 +1054,8 @@ function buildHistoryEntry() {
   };
 }
 
-function renderHistory() {
-  const history = loadHistory();
+async function renderHistory() {
+  const history = await loadHistoryData();
   const sec = document.getElementById('history-section');
 
   if (!history.length) {
@@ -1091,15 +1140,9 @@ function importTournament(event) {
     try {
       const data = JSON.parse(e.target.result);
       if (!data.rounds || !data.players) { alert('Неверный формат файла.'); return; }
-
-      // Save to history (avoid duplicates by id)
-      const history = loadHistory();
-      if (!history.find(h => h.id === data.id)) {
-        history.push(data);
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-      }
+      saveToHistory(data);
       renderHistory();
-      alert(`Турнир «${data.name || 'Без названия'}» успешно импортирован в историю.`);
+      alert(`Турнир «${data.name || 'Без названия'}» успешно импортирован.`);
     } catch { alert('Ошибка чтения файла.'); }
   };
   reader.readAsText(file);
@@ -1125,19 +1168,15 @@ function showWinner(name, fromLoad = false) {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-(function init() {
+(async function init() {
   renderHistory();
 
-  if (loadState()) {
+  const ok = await loadState();
+  if (ok) {
     document.getElementById('tournament-name').value = state.name || '';
     document.getElementById('participants-input').value = (state.players || []).join('\n');
     updatePreview();
-
     showBracket(state.players.length, state.rounds.length);
-
-    document.getElementById('save-indicator').textContent = '💾 Загружен сохранённый турнир';
-    document.getElementById('save-indicator').className = 'saved';
-
     const finalMatch = state.rounds[state.rounds.length - 1][0];
     if (finalMatch.winner && finalMatch.winner !== 'BYE') {
       showWinner(finalMatch.winner, true);
