@@ -448,6 +448,30 @@
   }
   .btn-import:hover { background: rgba(59,130,246,0.2); }
 
+  /* LOADING OVERLAY */
+  #loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10,14,10,0.75);
+    z-index: 9000;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    backdrop-filter: blur(4px);
+  }
+  #loading-overlay.active { display: flex; }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: var(--text-muted); font-size: 0.85rem; }
+
   @media (max-width: 600px) {
     .round-col { min-width: 170px; }
     .match-slot { width: 160px; }
@@ -526,6 +550,10 @@
 </div>
 
 <div class="confetti-container" id="confetti-container"></div>
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Загрузка...</div>
+</div>
 
 <script>
 // ─── STATE ────────────────────────────────────────────────────────────────────
@@ -544,6 +572,15 @@ function setSaveIndicator(text, ok = false) {
   el.textContent = text;
   el.className = ok ? 'saved' : '';
   if (ok) setTimeout(() => { el.className = ''; }, 2500);
+}
+
+// ─── LOADING ──────────────────────────────────────────────────────────────────
+function showLoading(text = 'Загрузка...') {
+  document.getElementById('loading-text').textContent = text;
+  document.getElementById('loading-overlay').classList.add('active');
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.remove('active');
 }
 
 // Сохранение через GET чтобы избежать потери тела на redirect у Apps Script
@@ -568,15 +605,16 @@ function saveState() {
 async function loadState() {
   if (USE_SHEETS) {
     try {
-      setSaveIndicator('☁️ Загрузка...');
+      showLoading('Загрузка из Google Sheets...');
       const res  = await sheetsGet({ action: 'loadState' });
       const text = await res.text();
       const saved = JSON.parse(text);
+      hideLoading();
       if (!saved || !saved.rounds || !saved.rounds.length) { setSaveIndicator(''); return false; }
       state = saved;
       setSaveIndicator('☁️ Загружено из Google Sheets', true);
       return true;
-    } catch(e) { setSaveIndicator('⚠️ Не удалось загрузить'); return false; }
+    } catch(e) { hideLoading(); setSaveIndicator('⚠️ Не удалось загрузить'); return false; }
   } else {
     try {
       const raw = localStorage.getItem('ft_state_v2');
@@ -673,6 +711,7 @@ function createBracket() {
 
   const { rounds, roundLabels } = buildRounds(seeded);
   state = {
+    id: Date.now(),           // фиксируем id один раз при создании
     name: document.getElementById('tournament-name').value.trim() || 'Турнир',
     players: names,
     rounds,
@@ -985,9 +1024,11 @@ function resetTournament() {
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
-function saveToHistory(entry) {
+async function saveToHistory(entry) {
   if (USE_SHEETS) {
-    sheetsGet({ action: 'saveHistory', data: JSON.stringify(entry) }).catch(() => {});
+    try {
+      await sheetsGet({ action: 'saveHistory', data: JSON.stringify(entry) });
+    } catch(e) {}
   } else {
     try {
       const history = JSON.parse(localStorage.getItem('ft_history_v1') || '[]');
@@ -1000,7 +1041,7 @@ function saveToHistory(entry) {
 async function loadHistoryData() {
   if (USE_SHEETS) {
     try {
-      const res = await fetch(`${SHEETS_URL}?action=loadHistory`);
+      const res = await sheetsGet({ action: 'loadHistory' });
       return JSON.parse(await res.text());
     } catch { return []; }
   } else {
@@ -1043,7 +1084,7 @@ function buildHistoryEntry() {
   });
 
   return {
-    id: Date.now(),
+    id: state.id || Date.now(),   // используем id из state, не создаём новый
     name: state.name,
     date: new Date().toLocaleDateString('ru'),
     players: state.players,
@@ -1125,10 +1166,7 @@ function exportTournament() {
   a.download = `${safeName}_${entry.date.replace(/\./g, '-')}.json`;
   a.click();
   URL.revokeObjectURL(url);
-
-  // Also save to local history
-  saveToHistory(entry);
-  renderHistory();
+  // history already saved automatically when winner was shown — no duplicate save needed
 }
 
 // ─── IMPORT ───────────────────────────────────────────────────────────────────
@@ -1150,7 +1188,7 @@ function importTournament(event) {
 }
 
 // ─── SHOW WINNER ─────────────────────────────────────────────────────────────
-function showWinner(name, fromLoad = false) {
+async function showWinner(name, fromLoad = false) {
   document.getElementById('winner-name').textContent = name;
   document.getElementById('winner-sub').textContent = `🏆 Чемпион турнира «${state.name}»`;
   const sec = document.getElementById('winner-section');
@@ -1158,20 +1196,22 @@ function showWinner(name, fromLoad = false) {
   sec.scrollIntoView({ behavior: 'smooth' });
   launchConfetti();
 
-  // Auto-save to history only when tournament just finished, not when restoring from localStorage
   if (!fromLoad && !state.savedToHistory) {
     state.savedToHistory = true;
     saveState();
-    saveToHistory(buildHistoryEntry());
-    renderHistory();
+    showLoading('Сохранение в Google Sheets...');
+    await saveToHistory(buildHistoryEntry());
+    hideLoading();
+    await renderHistory();
   }
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 (async function init() {
-  renderHistory();
+  showLoading('Подключение к Google Sheets...');
+  const [ok] = await Promise.all([loadState(), renderHistory()]);
+  hideLoading();
 
-  const ok = await loadState();
   if (ok) {
     document.getElementById('tournament-name').value = state.name || '';
     document.getElementById('participants-input').value = (state.players || []).join('\n');
