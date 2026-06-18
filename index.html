@@ -477,6 +477,100 @@
     .match-slot { width: 160px; }
     .team-name { max-width: 70px; }
   }
+
+  .stats-table { width:100%; border-collapse:collapse; font-size:0.85rem; margin-bottom:16px; }
+  .stats-table th { text-align:center; padding:8px 6px; font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); border-bottom:1px solid var(--border); font-weight:600; }
+  .stats-table th:first-child { text-align:left; }
+  .stats-table td { text-align:center; padding:8px 6px; border-bottom:1px solid rgba(30,46,30,0.5); }
+  .stats-table td:first-child { text-align:left; font-weight:600; }
+  .stats-table tr:hover td { background:rgba(34,197,94,0.04); }
+  .stats-table .td-green { color:var(--green); font-weight:700; }
+  .stats-table .td-red { color:var(--red); }
+  .stats-table .td-gold { color:var(--gold); font-weight:700; }
+
+  .participant-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .participant-row .p-name {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.9rem;
+    font-family: inherit;
+    padding: 9px 12px;
+    outline: none;
+  }
+  .participant-row .p-name:focus { border-color: var(--green-dim); box-shadow: 0 0 0 2px var(--green-glow); }
+  .club-selector-wrap { position: relative; flex: 1.2; min-width: 0; }
+  .p-club {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: inherit;
+    padding: 9px 12px;
+    outline: none;
+  }
+  .p-club:focus { border-color: var(--green-dim); box-shadow: 0 0 0 2px var(--green-glow); }
+  .club-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: #0f1f0f;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: 500;
+  }
+  .club-dropdown.open { display: block; }
+  .club-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .club-option:hover { background: var(--green-glow); }
+  .club-option .co-flag { font-size: 1rem; flex-shrink: 0; }
+  .club-option .co-name { flex: 1; }
+  .club-option .co-league { font-size: 0.7rem; color: var(--text-dim); }
+  .p-remove {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 6px;
+    width: 30px; height: 30px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .p-remove:hover { border-color: var(--red); color: var(--red); }
+
+  /* Club badge in bracket */
+  .club-badge {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90px;
+    display: block;
+    line-height: 1.2;
+  }
 </style>
 </head>
 <body>
@@ -492,12 +586,18 @@
     <div class="card-title">Настройка турнира</div>
     <input type="text" id="tournament-name" placeholder="Название турнира (напр. Летний кубок 2026)" />
 
-    <div style="margin-top:14px;">
-      <textarea id="participants-input" placeholder="Участники (каждый с новой строки)"></textarea>
-      <div class="field-hint">Минимум 2 участника. Лучший проигравший из предыдущего раунда займёт место BYE в следующем.</div>
+    <div style="margin-top:14px;" id="participants-builder-wrap">
+      <div id="participants-rows"></div>
+      <button class="btn" onclick="addParticipantRow()" style="margin-top:8px;background:rgba(34,197,94,0.08);color:var(--green);border:1px dashed rgba(34,197,94,0.3);width:100%;padding:10px;font-size:0.85rem;">+ Добавить участника</button>
+      <div class="field-hint" style="margin-top:6px;">Минимум 2 участника. Лучший проигравший займёт место BYE.</div>
     </div>
 
     <div id="participants-preview" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;"></div>
+
+    <div id="known-players-wrap" style="display:none;margin-top:10px;">
+      <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:6px;">Известные игроки (нажми чтобы добавить):</div>
+      <div id="known-players" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
 
     <div class="btn-row">
       <button class="btn btn-primary" onclick="createBracket()">⚡ Создать сетку</button>
@@ -550,12 +650,48 @@
 </div>
 
 <div class="confetti-container" id="confetti-container"></div>
+
+<div id="history-modal" style="display:none;position:fixed;inset:0;background:rgba(10,14,10,0.9);z-index:8000;overflow-y:auto;padding:20px;">
+  <div style="max-width:960px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div id="modal-title" style="font-size:1.1rem;font-weight:700;color:#e8f5e8;"></div>
+        <div id="modal-subtitle" style="font-size:0.8rem;color:#6b8a6b;margin-top:2px;"></div>
+      </div>
+      <button onclick="closeHistoryModal()" style="background:transparent;border:1px solid #1e2e1e;color:#6b8a6b;padding:8px 16px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:0.85rem;">✕ Закрыть</button>
+    </div>
+    <div style="overflow-x:auto;"><div id="modal-bracket" style="display:flex;gap:0;min-width:max-content;padding-top:8px;"></div></div>
+  </div>
+</div>
+
 <div id="loading-overlay">
   <div class="spinner"></div>
   <div class="loading-text" id="loading-text">Загрузка...</div>
 </div>
 
 <script>
+// ─── CLUBS ────────────────────────────────────────────────────────────────────
+const CLUBS = [
+  // La Liga
+  {n:'Реал Мадрид',l:'La Liga',f:'🇪🇸'},{n:'Барселона',l:'La Liga',f:'🇪🇸'},{n:'Атлетико Мадрид',l:'La Liga',f:'🇪🇸'},{n:'Севилья',l:'La Liga',f:'🇪🇸'},{n:'Вильярреал',l:'La Liga',f:'🇪🇸'},{n:'Реал Сосьедад',l:'La Liga',f:'🇪🇸'},{n:'Бетис',l:'La Liga',f:'🇪🇸'},{n:'Валенсия',l:'La Liga',f:'🇪🇸'},
+  // Premier League
+  {n:'Манчестер Сити',l:'Premier League',f:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{n:'Арсенал',l:'Premier League',f:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{n:'Ливерпуль',l:'Premier League',f:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{n:'Челси',l:'Premier League',f:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{n:'Манчестер Юнайтед',l:'Premier League',f:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{n:'Тоттенхэм',l:'Premier League',f:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{n:'Ньюкасл',l:'Premier League',f:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},{n:'Астон Вилла',l:'Premier League',f:'🏴󠁧󠁢󠁥󠁮󠁧󠁿'},
+  // Serie A
+  {n:'Интер',l:'Serie A',f:'🇮🇹'},{n:'Ювентус',l:'Serie A',f:'🇮🇹'},{n:'Милан',l:'Serie A',f:'🇮🇹'},{n:'Наполи',l:'Serie A',f:'🇮🇹'},{n:'Рома',l:'Serie A',f:'🇮🇹'},{n:'Лацио',l:'Serie A',f:'🇮🇹'},{n:'Аталанта',l:'Serie A',f:'🇮🇹'},{n:'Фиорентина',l:'Serie A',f:'🇮🇹'},
+  // Bundesliga
+  {n:'Бавария',l:'Bundesliga',f:'🇩🇪'},{n:'Боруссия Дортмунд',l:'Bundesliga',f:'🇩🇪'},{n:'Байер Леверкузен',l:'Bundesliga',f:'🇩🇪'},{n:'РБ Лейпциг',l:'Bundesliga',f:'🇩🇪'},{n:'Айнтрахт Франкфурт',l:'Bundesliga',f:'🇩🇪'},{n:'Вольфсбург',l:'Bundesliga',f:'🇩🇪'},
+  // Ligue 1
+  {n:'ПСЖ',l:'Ligue 1',f:'🇫🇷'},{n:'Монако',l:'Ligue 1',f:'🇫🇷'},{n:'Марсель',l:'Ligue 1',f:'🇫🇷'},{n:'Лион',l:'Ligue 1',f:'🇫🇷'},{n:'Лилль',l:'Ligue 1',f:'🇫🇷'},
+  // Eredivisie
+  {n:'Аякс',l:'Eredivisie',f:'🇳🇱'},{n:'ПСВ',l:'Eredivisie',f:'🇳🇱'},{n:'Фейеноорд',l:'Eredivisie',f:'🇳🇱'},
+  // Португалия
+  {n:'Бенфика',l:'Primeira Liga',f:'🇵🇹'},{n:'Порту',l:'Primeira Liga',f:'🇵🇹'},{n:'Спортинг',l:'Primeira Liga',f:'🇵🇹'},
+  // Россия/СНГ
+  {n:'Зенит',l:'РПЛ',f:'🇷🇺'},{n:'ЦСКА',l:'РПЛ',f:'🇷🇺'},{n:'Спартак',l:'РПЛ',f:'🇷🇺'},{n:'Локомотив',l:'РПЛ',f:'🇷🇺'},{n:'Динамо Москва',l:'РПЛ',f:'🇷🇺'},
+  // Таджикистан/ЦА
+  {n:'Истиклол',l:'Лига ТФФ',f:'🇹🇯'},{n:'Хукумат',l:'Лига ТФФ',f:'🇹🇯'},{n:'ЦСКА Душанбе',l:'Лига ТФФ',f:'🇹🇯'},
+];
+
 // ─── STATE ────────────────────────────────────────────────────────────────────
 // rounds[r][m] = { t1, t2, score1, score2, winner, t1Lucky, t2Lucky }
 let state = { name: '', players: [], rounds: [], roundLabels: [] };
@@ -627,25 +763,107 @@ async function loadState() {
   }
 }
 
-// ─── LIVE PREVIEW ─────────────────────────────────────────────────────────────
-document.getElementById('participants-input').addEventListener('input', updatePreview);
+// ─── PARTICIPANT ROWS ─────────────────────────────────────────────────────────
+function addParticipantRow(name='', clubObj=null) {
+  const container = document.getElementById('participants-rows');
+  const row = document.createElement('div');
+  row.className = 'participant-row';
 
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'p-name';
+  nameInput.placeholder = 'Имя участника';
+  nameInput.value = name;
+  nameInput.addEventListener('input', updatePreview);
+
+  const clubWrap = document.createElement('div');
+  clubWrap.className = 'club-selector-wrap';
+
+  const clubInput = document.createElement('input');
+  clubInput.type = 'text';
+  clubInput.className = 'p-club';
+  clubInput.placeholder = '🔍 Клуб (необязательно)';
+  clubInput.autocomplete = 'off';
+  clubInput.value = clubObj ? (clubObj.flag + ' ' + clubObj.club) : '';
+  clubInput.dataset.selected = clubObj ? clubObj.club : '';
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'club-dropdown';
+
+  clubInput.addEventListener('input', () => {
+    clubInput.dataset.selected = '';
+    const q = clubInput.value.trim().toLowerCase();
+    dropdown.innerHTML = '';
+    if (!q) { dropdown.classList.remove('open'); return; }
+    const matches = CLUBS.filter(c => c.n.toLowerCase().includes(q) || c.l.toLowerCase().includes(q)).slice(0, 12);
+    if (!matches.length) { dropdown.classList.remove('open'); return; }
+    matches.forEach(c => {
+      const opt = document.createElement('div');
+      opt.className = 'club-option';
+      opt.innerHTML = `<span class="co-flag">${c.f}</span><span class="co-name">${c.n}</span><span class="co-league">${c.l}</span>`;
+      opt.addEventListener('mousedown', e => {
+        e.preventDefault();
+        clubInput.value = c.f + ' ' + c.n;
+        clubInput.dataset.selected = c.n;
+        dropdown.classList.remove('open');
+      });
+      dropdown.appendChild(opt);
+    });
+    dropdown.classList.add('open');
+  });
+
+  clubInput.addEventListener('focus', () => { if (clubInput.value) clubInput.dispatchEvent(new Event('input')); });
+  clubInput.addEventListener('blur', () => { setTimeout(() => dropdown.classList.remove('open'), 150); });
+
+  clubWrap.appendChild(clubInput);
+  clubWrap.appendChild(dropdown);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'p-remove';
+  removeBtn.innerHTML = '✕';
+  removeBtn.type = 'button';
+  removeBtn.addEventListener('click', () => { row.remove(); updatePreview(); });
+
+  row.appendChild(nameInput);
+  row.appendChild(clubWrap);
+  row.appendChild(removeBtn);
+  container.appendChild(row);
+  nameInput.focus();
+}
+
+function getPlayerMeta() {
+  const meta = {};
+  document.querySelectorAll('.participant-row').forEach(r => {
+    const name = r.querySelector('.p-name').value.trim();
+    const clubVal = r.querySelector('.p-club').dataset.selected || '';
+    if (name && clubVal) {
+      const found = CLUBS.find(c => c.n === clubVal);
+      meta[name] = found ? { club: found.n, league: found.l, flag: found.f } : { club: clubVal, league: '', flag: '⚽' };
+    }
+  });
+  return meta;
+}
+
+// ─── LIVE PREVIEW ─────────────────────────────────────────────────────────────
 function getNames() {
-  return document.getElementById('participants-input').value
-    .split('\n').map(s => s.trim()).filter(Boolean);
+  const rows = document.querySelectorAll('.participant-row');
+  if (rows.length) {
+    return Array.from(rows).map(r => r.querySelector('.p-name').value.trim()).filter(Boolean);
+  }
+  const ta = document.getElementById('participants-input');
+  return ta ? ta.value.split('\n').map(s=>s.trim()).filter(Boolean) : [];
 }
 
 function updatePreview() {
   const names = getNames();
   const el = document.getElementById('participants-preview');
+  if (!el) return;
   el.innerHTML = '';
   if (!names.length) return;
-  names.forEach(n => {
-    const tag = document.createElement('span');
-    tag.className = 'tag';
-    tag.textContent = n;
-    el.appendChild(tag);
-  });
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.textContent = names.length + ' участников';
+  el.appendChild(tag);
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -717,6 +935,7 @@ function createBracket() {
     rounds,
     roundLabels
   };
+  state.playerMeta = getPlayerMeta();
 
   propagateWinners();
   saveState();
@@ -735,6 +954,7 @@ function reshuffleBracket() {
   const { rounds, roundLabels } = buildRounds(seeded);
   state.rounds = rounds;
   state.roundLabels = roundLabels;
+  state.playerMeta = getPlayerMeta();
 
   document.getElementById('winner-section').style.display = 'none';
   document.getElementById('confetti-container').innerHTML = '';
@@ -924,10 +1144,22 @@ function buildTeamRow(match, teamNum, rIdx, mIdx) {
     (isBye    ? ' bye-slot' : '') +
     (isLucky && !isDone ? ' lucky' : '');
 
+  const nameWrap = document.createElement('div');
+  nameWrap.style.flex = '1';
+  nameWrap.style.minWidth = '0';
   const nameEl = document.createElement('span');
   nameEl.className = 'team-name';
+  nameEl.style.display = 'block';
   nameEl.textContent = name || '—';
-  row.appendChild(nameEl);
+  nameWrap.appendChild(nameEl);
+  const meta = state.playerMeta && state.playerMeta[name];
+  if (meta && meta.club && !isBye) {
+    const badge = document.createElement('span');
+    badge.className = 'club-badge';
+    badge.textContent = meta.flag + ' ' + meta.club;
+    nameWrap.appendChild(badge);
+  }
+  row.appendChild(nameWrap);
 
   if (isLucky && !isDone) {
     const badge = document.createElement('span');
@@ -1017,10 +1249,116 @@ function resetTournament() {
   document.getElementById('bracket').innerHTML = '';
   document.getElementById('participants-preview').innerHTML = '';
   document.getElementById('tournament-name').value = '';
-  document.getElementById('participants-input').value = '';
   document.getElementById('save-indicator').textContent = 'Нет сохранённого турнира';
   document.getElementById('save-indicator').className = '';
+  const container = document.getElementById('participants-rows');
+  if (container) container.innerHTML = '';
+  addParticipantRow(); addParticipantRow();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─── HISTORY MODAL ────────────────────────────────────────────────────────────
+function openHistoryModal(entry) {
+  const modal = document.getElementById('history-modal');
+  document.getElementById('modal-title').textContent = entry.name || 'Турнир';
+  document.getElementById('modal-subtitle').textContent = entry.date + ' · ' + (entry.players||[]).length + ' участников · 🏆 ' + (entry.winner || '—');
+
+  const container = document.getElementById('modal-bracket');
+  container.innerHTML = '';
+  const rounds = entry.rounds || [];
+  const labels = entry.roundLabels || [];
+
+  rounds.forEach((round, rIdx) => {
+    const col = document.createElement('div');
+    col.className = 'round-col';
+    const label = document.createElement('div');
+    label.className = 'round-label';
+    label.textContent = labels[rIdx] || ('Раунд ' + (rIdx+1));
+    col.appendChild(label);
+    const matchesDiv = document.createElement('div');
+    matchesDiv.className = 'round-matches';
+    const spacerH = Math.pow(2, rIdx) * 10;
+    round.forEach((match, mIdx) => {
+      if (mIdx > 0) { const sp = document.createElement('div'); sp.style.height = spacerH+'px'; matchesDiv.appendChild(sp); }
+      const wrapper = document.createElement('div');
+      wrapper.className = 'match-wrapper';
+      wrapper.appendChild(buildHistoryMatchSlot(match, entry.playerMeta));
+      matchesDiv.appendChild(wrapper);
+    });
+    col.appendChild(matchesDiv);
+    container.appendChild(col);
+    if (rIdx < rounds.length - 1) { const g = document.createElement('div'); g.style.cssText='width:24px;flex-shrink:0;'; container.appendChild(g); }
+  });
+
+  modal.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function buildHistoryMatchSlot(match, playerMeta) {
+  const slot = document.createElement('div');
+  const isDone = match.winner !== null;
+  slot.className = 'match-slot' + (isDone ? ' done' : '');
+  [1,2].forEach(teamNum => {
+    const name = teamNum===1 ? match.t1 : match.t2;
+    const score = teamNum===1 ? match.score1 : match.score2;
+    const isBye = name==='BYE';
+    const isWinner = isDone && match.winner===name && !isBye;
+    const isLoser = isDone && !isWinner && name && !isBye;
+    const row = document.createElement('div');
+    row.className = 'match-team' + (isWinner?' winner':'') + (isLoser?' loser':'') + (isBye?' bye-slot':'');
+    const nameWrap = document.createElement('div');
+    nameWrap.style.flex = '1';
+    nameWrap.style.minWidth = '0';
+    const nameEl = document.createElement('span'); nameEl.className='team-name'; nameEl.style.display='block'; nameEl.textContent=name||'—';
+    nameWrap.appendChild(nameEl);
+    const pm = playerMeta && playerMeta[name];
+    if (pm && pm.club && !isBye) {
+      const badge = document.createElement('span'); badge.className='club-badge'; badge.textContent=pm.flag+' '+pm.club;
+      nameWrap.appendChild(badge);
+    }
+    row.appendChild(nameWrap);
+    if (isDone && !isBye && !(match.t1==='BYE'||match.t2==='BYE') && score!==null) {
+      const sc = document.createElement('span'); sc.className='score-display'+(isWinner?' winner-score':''); sc.textContent=score;
+      row.appendChild(sc);
+    }
+    slot.appendChild(row);
+  });
+  return slot;
+}
+
+function closeHistoryModal() {
+  document.getElementById('history-modal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// ─── KNOWN PLAYERS ────────────────────────────────────────────────────────────
+async function loadKnownPlayers() {
+  const history = await loadHistoryData();
+  const allPlayers = new Set();
+  history.forEach(e => (e.players||[]).forEach(p => allPlayers.add(p)));
+  const wrap = document.getElementById('known-players-wrap');
+  const container = document.getElementById('known-players');
+  if (!allPlayers.size) { wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  container.innerHTML='';
+  [...allPlayers].sort().forEach(name => {
+    const chip = document.createElement('span');
+    chip.className='tag';
+    chip.style.cursor='pointer';
+    chip.textContent=name;
+    chip.onclick=()=>{
+      const existingNames = Array.from(document.querySelectorAll('.p-name')).map(i => i.value.trim());
+      if (!existingNames.includes(name)) {
+        let meta = null;
+        for (let i = history.length-1; i >= 0; i--) {
+          if (history[i].playerMeta && history[i].playerMeta[name]) { meta = history[i].playerMeta[name]; break; }
+        }
+        addParticipantRow(name, meta);
+        updatePreview();
+      }
+    };
+    container.appendChild(chip);
+  });
 }
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
@@ -1091,7 +1429,8 @@ function buildHistoryEntry() {
     winner,
     stats,
     rounds: state.rounds,
-    roundLabels: state.roundLabels
+    roundLabels: state.roundLabels,
+    playerMeta: state.playerMeta || {}
   };
 }
 
@@ -1101,6 +1440,7 @@ async function renderHistory() {
 
   if (!history.length) {
     sec.style.display = 'none';
+    loadKnownPlayers();
     return;
   }
   sec.style.display = 'block';
@@ -1109,32 +1449,58 @@ async function renderHistory() {
   const allStats = {};
   history.forEach(entry => {
     Object.entries(entry.stats || {}).forEach(([player, s]) => {
-      if (!allStats[player]) allStats[player] = { wins: 0, played: 0, tournaments: 0, trophies: 0 };
+      if (!allStats[player]) allStats[player] = { wins: 0, played: 0, tournaments: 0, trophies: 0, goalsFor: 0, goalsAgainst: 0 };
       allStats[player].wins += s.wins || 0;
       allStats[player].played += s.played || 0;
       allStats[player].tournaments++;
+      allStats[player].goalsFor += s.goalsFor || 0;
+      allStats[player].goalsAgainst += s.goalsAgainst || 0;
       if (entry.winner === player) allStats[player].trophies++;
     });
   });
 
   const sorted = Object.entries(allStats).sort((a, b) => b[1].trophies - a[1].trophies || b[1].wins - a[1].wins);
 
+  // Collect latest club per player from history
+  const playerClubs = {};
+  history.forEach(e => {
+    Object.entries(e.playerMeta || {}).forEach(([p, m]) => { playerClubs[p] = m; });
+  });
+
   const statsEl = document.getElementById('history-stats');
   if (sorted.length) {
-    const grid = document.createElement('div');
-    grid.className = 'stat-grid';
-    sorted.slice(0, 8).forEach(([name, s], i) => {
-      const card = document.createElement('div');
-      card.className = 'stat-card' + (i === 0 && s.trophies > 0 ? ' champion' : '');
-      card.innerHTML = `
-        <div class="stat-name" title="${name}">${i === 0 && s.trophies > 0 ? '👑 ' : ''}${name}</div>
-        <div class="stat-wins">${s.trophies}</div>
-        <div class="stat-label">🏆 побед в турнирах</div>
-        <div class="stat-label" style="margin-top:4px">${s.wins} матчей выиграно</div>`;
-      grid.appendChild(card);
+    const table = document.createElement('table');
+    table.className = 'stats-table';
+    table.innerHTML = `<thead><tr>
+      <th>Игрок</th>
+      <th>🏆 Кубки</th>
+      <th>✅ Победы</th>
+      <th>❌ Поражения</th>
+      <th>⚽ Забил</th>
+      <th>🚫 Пропустил</th>
+      <th>± Разница</th>
+    </tr></thead>`;
+    const tbody = document.createElement('tbody');
+    sorted.forEach(([name, s], i) => {
+      const isChamp = i === 0 && s.trophies > 0;
+      const losses = s.played - s.wins;
+      const diff = s.goalsFor - s.goalsAgainst;
+      const diffStr = diff > 0 ? '+' + diff : String(diff);
+      const clubInfo = playerClubs[name] ? `<small style="color:var(--text-dim);font-size:0.7rem;display:block;">${playerClubs[name].flag} ${playerClubs[name].club}</small>` : '';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${isChamp ? '👑 ' : ''}${name}${clubInfo}</td>
+        <td class="td-gold">${s.trophies}</td>
+        <td class="td-green">${s.wins}</td>
+        <td class="td-red">${losses}</td>
+        <td>${s.goalsFor}</td>
+        <td>${s.goalsAgainst}</td>
+        <td class="${diff > 0 ? 'td-green' : diff < 0 ? 'td-red' : ''}">${diffStr}</td>`;
+      tbody.appendChild(tr);
     });
+    table.appendChild(tbody);
     statsEl.innerHTML = '';
-    statsEl.appendChild(grid);
+    statsEl.appendChild(table);
   } else {
     statsEl.innerHTML = '';
   }
@@ -1142,7 +1508,10 @@ async function renderHistory() {
   // Tournament list
   const listEl = document.getElementById('history-list');
   listEl.innerHTML = '';
+  window._historyEntries = [];
   [...history].reverse().forEach(entry => {
+    const idx = window._historyEntries.length;
+    window._historyEntries.push(entry);
     const item = document.createElement('div');
     item.className = 'history-item';
     item.innerHTML = `
@@ -1150,9 +1519,14 @@ async function renderHistory() {
         <div class="history-item-name">${entry.name || 'Турнир'}</div>
         <div class="history-item-meta">${entry.date} · ${(entry.players || []).length} участников</div>
       </div>
-      <div class="history-item-winner">${entry.winner ? '🏆 ' + entry.winner : '—'}</div>`;
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div class="history-item-winner">${entry.winner ? '🏆 ' + entry.winner : '—'}</div>
+        <button class="btn btn-reset" style="font-size:0.75rem;padding:5px 10px;" onclick="openHistoryModal(window._historyEntries[${idx}])">📊 Сетка</button>
+      </div>`;
     listEl.appendChild(item);
   });
+
+  loadKnownPlayers();
 }
 
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
@@ -1214,7 +1588,15 @@ async function showWinner(name, fromLoad = false) {
 
   if (ok) {
     document.getElementById('tournament-name').value = state.name || '';
-    document.getElementById('participants-input').value = (state.players || []).join('\n');
+    // populate participant rows from saved state
+    const container = document.getElementById('participants-rows');
+    if (container) {
+      container.innerHTML = '';
+      (state.players || []).forEach(name => {
+        const meta = state.playerMeta && state.playerMeta[name];
+        addParticipantRow(name, meta || null);
+      });
+    }
     updatePreview();
     showBracket(state.players.length, state.rounds.length);
     const finalMatch = state.rounds[state.rounds.length - 1][0];
@@ -1223,7 +1605,9 @@ async function showWinner(name, fromLoad = false) {
     }
   } else {
     updatePreview();
+    addParticipantRow(); addParticipantRow();
   }
+  loadKnownPlayers();
 })();
 </script>
 </body>
