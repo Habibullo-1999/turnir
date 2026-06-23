@@ -75,14 +75,71 @@
   .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
   .nav-btn.active { color: var(--green); border-bottom-color: var(--green); }
   .view-only-banner {
-    background: rgba(251,191,36,0.1);
-    border-bottom: 1px solid rgba(251,191,36,0.3);
+    background: rgba(251,191,36,0.08);
+    border-bottom: 1px solid rgba(251,191,36,0.2);
     color: var(--gold);
     text-align: center;
-    font-size: 0.78rem;
-    padding: 6px 16px;
+    font-size: 0.75rem;
+    padding: 5px 16px;
     letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
+  .view-only-banner .live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #ef4444;
+    animation: pulse-live 1.5s infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse-live {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:0.4; transform:scale(0.7); }
+  }
+  /* View-only hero */
+  .vo-hero {
+    background: linear-gradient(135deg, var(--card) 0%, rgba(22,32,22,0.8) 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px 20px;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+  .vo-hero-name { font-size: clamp(1.3rem, 4vw, 2rem); font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+  .vo-hero-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+  .vo-refresh { font-size: 0.7rem; color: var(--text-dim); margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .vo-refresh-bar { flex: 1; max-width: 100px; height: 2px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .vo-refresh-bar-fill { height: 100%; background: var(--green); width: 0%; transition: width 1s linear; }
+  /* Nicer match card for view-only */
+  .vo-match {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .vo-match.played { border-color: #1d3a1d; }
+  .vo-team { flex: 1; font-size: 0.82rem; font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vo-team.right { text-align: right; }
+  .vo-team.win { color: var(--green); }
+  .vo-score-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 44px;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+  .vo-score-box.live { color: var(--green); border-color: var(--green-dim); background: var(--green-glow); }
 
   .container {
     max-width: 960px;
@@ -541,9 +598,17 @@
   .standings-table .pos { color:var(--text-dim);font-size:0.75rem;margin-right:6px; }
   .advance-marker { display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--green);margin-right:6px;vertical-align:middle; }
 
-  .group-tours { display:flex;flex-direction:row;gap:12px;overflow-x:auto;padding-bottom:4px; }
-  .group-tour { display:flex;flex-direction:column;gap:8px;min-width:200px;flex:1; }
-  .group-tour-label { font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);text-align:center;padding:4px 0 2px; }
+  .group-tours { display:flex;flex-direction:column;gap:20px;padding-bottom:4px; }
+  .group-tour { display:flex;flex-direction:column;gap:8px; }
+  .group-tour-label {
+    font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;
+    color:var(--text-dim);text-align:center;padding:6px 0;
+    display:flex;align-items:center;gap:10px;
+  }
+  .group-tour-label::before,.group-tour-label::after {
+    content:'';flex:1;height:1px;background:var(--border);
+  }
+  .group-tour-matches { display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px; }
   .group-match { background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden; }
   .group-match.played { border-color:#1d3a1d; }
   .group-match.active { border-color:var(--green-dim); }
@@ -684,7 +749,10 @@
     </nav>
   </div>
 </header>
-<div class="view-only-banner" id="view-only-banner" style="display:none;">👁 Режим просмотра — редактирование недоступно</div>
+<div class="view-only-banner" id="view-only-banner" style="display:none;">
+  <span class="live-dot"></span>
+  LIVE · Режим просмотра — редактирование недоступно
+</div>
 
 <div class="container">
 
@@ -1395,9 +1463,12 @@ function renderGroupStage() {
       lbl.className = 'group-tour-label';
       lbl.textContent = 'Тур ' + (tIdx + 1);
       col.appendChild(lbl);
+      const matchesGrid = document.createElement('div');
+      matchesGrid.className = 'group-tour-matches';
       matchIndices.forEach(mIdx => {
-        col.appendChild(buildGroupMatch(group.matches[mIdx], gIdx, mIdx));
+        matchesGrid.appendChild(buildGroupMatch(group.matches[mIdx], gIdx, mIdx));
       });
+      col.appendChild(matchesGrid);
       toursDiv.appendChild(col);
     });
     block.appendChild(toursDiv);
@@ -1421,22 +1492,31 @@ function buildGroupMatch(match, gIdx, mIdx) {
 
   const homeTag = (state.format === 'league' && match.home) ? '<span style="font-size:0.6rem;color:var(--text-dim);margin-left:3px;">🏠</span>' : '';
   if (match.played) {
-    const row = document.createElement('div');
-    row.className = 'gm-row';
     const w1 = match.score1 > match.score2, w2 = match.score2 > match.score1;
-    row.innerHTML = `
-      <div class="gm-team ${w1?'gm-winner':''}">${match.t1}${homeTag}</div>
-      <div class="gm-result">${match.score1} : ${match.score2}</div>
-      <div class="gm-team right ${w2?'gm-winner':''}">${match.t2}</div>`;
-    if (!state.savedToHistory && !VIEW_ONLY) {
-      const editBtn = document.createElement('button');
-      editBtn.className = 'gm-edit';
-      editBtn.textContent = '✏️';
-      editBtn.title = 'Редактировать счёт';
-      editBtn.onclick = () => editGroupMatch(gIdx, mIdx);
-      row.appendChild(editBtn);
+    if (VIEW_ONLY) {
+      div.innerHTML = `
+        <div class="vo-match played">
+          <div class="vo-team ${w1?'win':''}">${match.t1}${homeTag}</div>
+          <div class="vo-score-box live">${match.score1} : ${match.score2}</div>
+          <div class="vo-team right ${w2?'win':''}">${match.t2}</div>
+        </div>`;
+    } else {
+      const row = document.createElement('div');
+      row.className = 'gm-row';
+      row.innerHTML = `
+        <div class="gm-team ${w1?'gm-winner':''}">${match.t1}${homeTag}</div>
+        <div class="gm-result">${match.score1} : ${match.score2}</div>
+        <div class="gm-team right ${w2?'gm-winner':''}">${match.t2}</div>`;
+      if (!state.savedToHistory) {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'gm-edit';
+        editBtn.textContent = '✏️';
+        editBtn.title = 'Редактировать счёт';
+        editBtn.onclick = () => editGroupMatch(gIdx, mIdx);
+        row.appendChild(editBtn);
+      }
+      div.appendChild(row);
     }
-    div.appendChild(row);
   } else if (!VIEW_ONLY) {
     const row = document.createElement('div');
     row.className = 'gm-row';
@@ -1455,13 +1535,12 @@ function buildGroupMatch(match, gIdx, mIdx) {
     btn.onclick = () => confirmGroupMatch(gIdx, mIdx);
     div.appendChild(btn);
   } else {
-    const row = document.createElement('div');
-    row.className = 'gm-row';
-    row.innerHTML = `
-      <div class="gm-team">${match.t1}${homeTag}</div>
-      <div class="gm-score" style="color:var(--text-dim);font-size:0.9rem;font-weight:700;">— : —</div>
-      <div class="gm-team right">${match.t2}</div>`;
-    div.appendChild(row);
+    div.innerHTML = `
+      <div class="vo-match">
+        <div class="vo-team">${match.t1}${homeTag}</div>
+        <div class="vo-score-box">— : —</div>
+        <div class="vo-team right">${match.t2}</div>
+      </div>`;
   }
   return div;
 }
@@ -2769,6 +2848,20 @@ async function loadViewOnly() {
   }
   switchPage('turnir');
   document.getElementById('main-nav').style.display = 'none';
+
+  // Hero block
+  const heroDiv = document.createElement('div');
+  heroDiv.className = 'vo-hero';
+  const formatLabels = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы + Плей-офф', league: '🏅 Лига' };
+  heroDiv.innerHTML = `
+    <div class="vo-hero-name">${state.name || 'Турнир'}</div>
+    <div class="vo-hero-sub">${formatLabels[state.format] || ''} · ${(state.players||[]).length} участников</div>
+    <div class="vo-refresh" id="vo-refresh-wrap">
+      <span>Обновление через <span id="vo-countdown">30</span> сек</span>
+      <div class="vo-refresh-bar"><div class="vo-refresh-bar-fill" id="vo-bar"></div></div>
+    </div>`;
+  document.getElementById('page-turnir').insertBefore(heroDiv, document.getElementById('page-turnir').firstChild);
+
   try {
     if (state.format === 'group' || state.format === 'group+playoff' || state.format === 'league') {
       if (state.groups && state.groups.length) showGroupStage();
@@ -2780,6 +2873,18 @@ async function loadViewOnly() {
     console.error('view-only render error:', err);
   }
   applyViewOnly();
+
+  // Auto-refresh every 30s
+  let countdown = 30;
+  const bar = document.getElementById('vo-bar');
+  const counter = document.getElementById('vo-countdown');
+  if (bar) bar.style.width = '100%';
+  const tick = setInterval(() => {
+    countdown--;
+    if (counter) counter.textContent = countdown;
+    if (bar) bar.style.width = (countdown / 30 * 100) + '%';
+    if (countdown <= 0) { clearInterval(tick); location.reload(); }
+  }, 1000);
 }
 
 (async function init() {
