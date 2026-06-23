@@ -684,6 +684,18 @@
       <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--green);margin-bottom:4px;display:flex;align-items:center;gap:8px;"><span style="display:block;width:3px;height:14px;background:var(--green);border-radius:2px;"></span>Сохранённые турниры</div>
       <div id="saves-list" class="saves-list"></div>
     </div>
+
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div id="backend-indicator" style="font-size:0.75rem;color:var(--text-dim);"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div id="migrate-wrap" style="display:none;">
+          <button onclick="migrateToFirebase()" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-dim);font-size:0.75rem;padding:5px 10px;cursor:pointer;font-family:inherit;transition:color 0.2s,border-color 0.2s;" onmouseover="this.style.color='var(--green)';this.style.borderColor='var(--green)'" onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='var(--border)'">☁️→🔥 Перенести в Firebase</button>
+        </div>
+        <div id="sheets-backup-wrap" style="display:none;">
+          <button onclick="backupToSheets()" id="sheets-backup-btn" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-dim);font-size:0.75rem;padding:5px 10px;cursor:pointer;font-family:inherit;transition:color 0.2s,border-color 0.2s;" onmouseover="this.style.color='#34a853';this.style.borderColor='#34a853'" onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='var(--border)'">📊 Сохранить в Excel</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="card" id="group-section" style="display:none;">
@@ -739,7 +751,7 @@
     <div id="history-list" class="history-list"></div>
     <div class="history-actions">
       <button class="btn btn-import" onclick="document.getElementById('import-file').click()">📥 Импорт JSON</button>
-      <button class="btn btn-reset" onclick="clearHistory()" style="font-size:0.78rem;padding:7px 12px;">Очистить историю</button>
+
     </div>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importTournament(event)">
   </div>
@@ -867,6 +879,21 @@ const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyK4mEQDc0yOBcG8pCVy
 
 const USE_SHEETS = SHEETS_URL.startsWith('https://script.google.com/macros/s/');
 
+// ─── FIREBASE CONFIG ──────────────────────────────────────────────────────────
+const FIREBASE_URL = 'https://turnir-2be75-default-rtdb.asia-southeast1.firebasedatabase.app'; // Вставь: https://<project-id>-default-rtdb.firebaseio.com/turnir
+const USE_FIREBASE = FIREBASE_URL.startsWith('https://') && (FIREBASE_URL.includes('firebaseio.com') || FIREBASE_URL.includes('firebasedatabase.app'));
+
+async function fbGet(path) {
+  const res = await fetch(FIREBASE_URL + path + '.json');
+  return res.json();
+}
+async function fbPut(path, data) {
+  return fetch(FIREBASE_URL + path + '.json', { method: 'PUT', body: JSON.stringify(data) });
+}
+async function fbDelete(path) {
+  return fetch(FIREBASE_URL + path + '.json', { method: 'DELETE' });
+}
+
 // ─── PERSISTENCE ─────────────────────────────────────────────────────────────
 function setSaveIndicator(text, ok = false) {
   const el = document.getElementById('save-indicator');
@@ -891,7 +918,11 @@ function sheetsGet(params) {
 }
 
 function saveState() {
-  if (USE_SHEETS) {
+  if (USE_FIREBASE) {
+    fbPut('/state', state)
+      .then(() => setSaveIndicator('🔥 Сохранено ' + new Date().toLocaleTimeString('ru'), true))
+      .catch(() => setSaveIndicator('⚠️ Ошибка Firebase'));
+  } else if (USE_SHEETS) {
     sheetsGet({ action: 'saveState', data: JSON.stringify(state) })
       .then(() => setSaveIndicator('☁️ Сохранено ' + new Date().toLocaleTimeString('ru'), true))
       .catch(() => setSaveIndicator('⚠️ Ошибка сохранения'));
@@ -904,7 +935,17 @@ function saveState() {
 }
 
 async function loadState() {
-  if (USE_SHEETS) {
+  if (USE_FIREBASE) {
+    try {
+      showLoading('Загрузка из Firebase...');
+      const saved = await fbGet('/state');
+      hideLoading();
+      if (!saved || (!saved.rounds?.length && !saved.groups?.length)) { setSaveIndicator(''); return false; }
+      state = saved;
+      setSaveIndicator('🔥 Загружено из Firebase', true);
+      return true;
+    } catch(e) { hideLoading(); setSaveIndicator('⚠️ Не удалось загрузить'); return false; }
+  } else if (USE_SHEETS) {
     try {
       showLoading('Загрузка из Google Sheets...');
       const res  = await sheetsGet({ action: 'loadState' });
@@ -1859,7 +1900,11 @@ async function pauseTournament() {
     savedAt: new Date().toLocaleString('ru'),
   };
   // Save to Saves storage
-  if (USE_SHEETS) {
+  if (USE_FIREBASE) {
+    showLoading('Сохранение...');
+    await fbPut('/saves/' + saveObj.id, saveObj).catch(() => {});
+    hideLoading();
+  } else if (USE_SHEETS) {
     showLoading('Сохранение...');
     await sheetsGet({ action: 'savePaused', data: JSON.stringify(saveObj) }).catch(() => {});
     hideLoading();
@@ -1871,7 +1916,8 @@ async function pauseTournament() {
   }
   // Clear active state
   localStorage.removeItem('ft_state_v2');
-  if (USE_SHEETS) sheetsGet({ action: 'saveState', data: 'null' }).catch(() => {});
+  if (USE_FIREBASE) fbPut('/state', null).catch(() => {});
+  else if (USE_SHEETS) sheetsGet({ action: 'saveState', data: 'null' }).catch(() => {});
   state = { name: '', players: [], rounds: [], roundLabels: [] };
   document.getElementById('group-section').style.display = 'none';
   document.getElementById('bracket-section').style.display = 'none';
@@ -1889,7 +1935,13 @@ async function pauseTournament() {
 }
 
 async function loadSavesList() {
-  if (USE_SHEETS) {
+  if (USE_FIREBASE) {
+    try {
+      const data = await fbGet('/saves');
+      if (!data) return [];
+      return Object.values(data);
+    } catch { return []; }
+  } else if (USE_SHEETS) {
     try {
       const res = await sheetsGet({ action: 'listSaves' });
       return JSON.parse(await res.text()) || [];
@@ -1935,7 +1987,9 @@ async function resumeTournament(id) {
 }
 
 async function deleteSaveEntry(id) {
-  if (USE_SHEETS) {
+  if (USE_FIREBASE) {
+    await fbDelete('/saves/' + id).catch(() => {});
+  } else if (USE_SHEETS) {
     await sheetsGet({ action: 'deleteSave', id: String(id) }).catch(() => {});
   } else {
     const saves = getSavesLocal().filter(s => String(s.id) !== String(id));
@@ -1975,7 +2029,8 @@ async function renderSavedTournaments() {
 function resetTournament() {
   if (!confirm('Сбросить турнир полностью?')) return;
   localStorage.removeItem('ft_state_v2');
-  if (USE_SHEETS) sheetsGet({ action: 'saveState', data: 'null' }).catch(() => {});
+  if (USE_FIREBASE) fbPut('/state', null).catch(() => {});
+  else if (USE_SHEETS) sheetsGet({ action: 'saveState', data: 'null' }).catch(() => {});
   state = { name: '', players: [], rounds: [], roundLabels: [] };
   document.getElementById('group-section').style.display = 'none';
   document.getElementById('bracket-section').style.display = 'none';
@@ -2184,10 +2239,10 @@ async function loadKnownPlayers() {
 
 // ─── HISTORY ──────────────────────────────────────────────────────────────────
 async function saveToHistory(entry) {
-  if (USE_SHEETS) {
-    try {
-      await sheetsGet({ action: 'saveHistory', data: JSON.stringify(entry) });
-    } catch(e) {}
+  if (USE_FIREBASE) {
+    try { await fbPut('/history/' + entry.id, entry); } catch(e) {}
+  } else if (USE_SHEETS) {
+    try { await sheetsGet({ action: 'saveHistory', data: JSON.stringify(entry) }); } catch(e) {}
   } else {
     try {
       const history = JSON.parse(localStorage.getItem('ft_history_v1') || '[]');
@@ -2198,7 +2253,13 @@ async function saveToHistory(entry) {
 }
 
 async function loadHistoryData() {
-  if (USE_SHEETS) {
+  if (USE_FIREBASE) {
+    try {
+      const data = await fbGet('/history');
+      if (!data) return [];
+      return Object.values(data).sort((a, b) => (b.id || 0) - (a.id || 0));
+    } catch { return []; }
+  } else if (USE_SHEETS) {
     try {
       const res = await sheetsGet({ action: 'loadHistory' });
       return JSON.parse(await res.text());
@@ -2210,6 +2271,10 @@ async function loadHistoryData() {
 
 function clearHistory() {
   if (!confirm('Очистить всю историю турниров?')) return;
+  if (USE_FIREBASE) {
+    fbDelete('/history').then(() => renderHistory());
+    return;
+  }
   if (USE_SHEETS) {
     alert('Очистка истории в Google Sheets: удали строки вручную на листе History.');
     return;
@@ -2440,6 +2505,103 @@ async function showWinner(name, fromLoad = false) {
   }
 }
 
+// ─── BACKEND INDICATOR ────────────────────────────────────────────────────────
+function initBackendIndicator() {
+  const el = document.getElementById('backend-indicator');
+  const mw = document.getElementById('migrate-wrap');
+  const sbw = document.getElementById('sheets-backup-wrap');
+  if (USE_FIREBASE) {
+    el.textContent = '🔥 Firebase Realtime Database';
+    el.style.color = '#f97316';
+    if (USE_SHEETS) {
+      sbw.style.display = 'block';
+    }
+  } else if (USE_SHEETS) {
+    el.textContent = '📊 Google Sheets';
+  } else {
+    el.textContent = '💾 Локальное хранилище (localStorage)';
+  }
+}
+
+// ─── SHEETS BACKUP ────────────────────────────────────────────────────────────
+async function backupToSheets() {
+  if (!USE_SHEETS) { alert('Google Sheets URL не настроен.'); return; }
+  const btn = document.getElementById('sheets-backup-btn');
+  btn.textContent = '⏳ Сохранение...';
+  btn.disabled = true;
+  let saved = 0;
+  try {
+    // Save active state
+    if (state.players && state.players.length) {
+      await sheetsGet({ action: 'saveState', data: JSON.stringify(state) });
+      saved++;
+    }
+    // Save full history
+    const history = await loadHistoryData();
+    for (const entry of history) {
+      await sheetsGet({ action: 'saveHistory', data: JSON.stringify(entry) });
+      saved++;
+    }
+    // Save paused tournaments
+    const saves = await loadSavesList();
+    for (const s of saves) {
+      await sheetsGet({ action: 'savePaused', data: JSON.stringify(s) });
+      saved++;
+    }
+    btn.textContent = `✅ Сохранено (${saved})`;
+    setTimeout(() => { btn.textContent = '📊 Сохранить в Excel'; btn.disabled = false; }, 3000);
+  } catch(e) {
+    btn.textContent = '⚠️ Ошибка';
+    setTimeout(() => { btn.textContent = '📊 Сохранить в Excel'; btn.disabled = false; }, 3000);
+  }
+}
+
+// ─── MIGRATION ────────────────────────────────────────────────────────────────
+async function migrateToFirebase() {
+  if (!USE_FIREBASE) { alert('Firebase URL не настроен.'); return; }
+  if (!USE_SHEETS) { alert('Google Sheets URL не настроен — нечего переносить.'); return; }
+  if (!confirm('Перенести все данные из Google Sheets в Firebase?\nСуществующие данные в Firebase будут дополнены.')) return;
+
+  showLoading('Чтение из Google Sheets...');
+  let migrated = 0;
+
+  try {
+    // Migrate state
+    const stateRes = await sheetsGet({ action: 'loadState' });
+    const stateData = JSON.parse(await stateRes.text());
+    if (stateData && (stateData.rounds?.length || stateData.groups?.length)) {
+      await fbPut('/state', stateData);
+      migrated++;
+    }
+
+    // Migrate history
+    showLoading('Перенос истории...');
+    const histRes = await sheetsGet({ action: 'loadHistory' });
+    const history = JSON.parse(await histRes.text()) || [];
+    for (const entry of history) {
+      await fbPut('/history/' + entry.id, entry);
+      migrated++;
+    }
+
+    // Migrate saves
+    showLoading('Перенос сохранений...');
+    const savesRes = await sheetsGet({ action: 'listSaves' });
+    const saves = JSON.parse(await savesRes.text()) || [];
+    for (const s of saves) {
+      await fbPut('/saves/' + s.id, s);
+      migrated++;
+    }
+
+    hideLoading();
+    alert(`✅ Перенесено записей: ${migrated}\nТеперь можно использовать Firebase как основное хранилище.`);
+    await renderHistory();
+    await renderSavedTournaments();
+  } catch(e) {
+    hideLoading();
+    alert('⚠️ Ошибка миграции: ' + e.message);
+  }
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 (async function init() {
   showLoading('Подключение к Google Sheets...');
@@ -2486,6 +2648,7 @@ async function showWinner(name, fromLoad = false) {
   }
   loadKnownPlayers();
   renderSavedTournaments();
+  initBackendIndicator();
 })();
 </script>
 </body>
