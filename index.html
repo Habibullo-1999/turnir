@@ -34,21 +34,55 @@
   header {
     background: linear-gradient(135deg, #0d1a0d, #0f2010);
     border-bottom: 1px solid var(--border);
-    padding: 20px 24px;
+    padding: 12px 24px 0;
     text-align: center;
     position: sticky;
     top: 0;
     z-index: 100;
     backdrop-filter: blur(10px);
   }
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 10px;
+  }
   header h1 {
-    font-size: clamp(1.4rem, 4vw, 2rem);
+    font-size: clamp(1.1rem, 3vw, 1.5rem);
     font-weight: 700;
     letter-spacing: -0.5px;
     color: var(--green);
     text-shadow: 0 0 20px rgba(34,197,94,0.4);
   }
-  header p { color: var(--text-muted); font-size: 0.8rem; margin-top: 4px; }
+  .header-nav {
+    display: flex;
+    gap: 4px;
+  }
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 6px 16px;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.2s, background 0.2s;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+  .nav-btn.active { color: var(--green); border-bottom-color: var(--green); }
+  .view-only-banner {
+    background: rgba(251,191,36,0.1);
+    border-bottom: 1px solid rgba(251,191,36,0.3);
+    color: var(--gold);
+    text-align: center;
+    font-size: 0.78rem;
+    padding: 6px 16px;
+    letter-spacing: 0.5px;
+  }
 
   .container {
     max-width: 960px;
@@ -642,11 +676,20 @@
 <body>
 
 <header>
-  <h1>⚽ Football Tournament</h1>
-  <p>Личный турнир с друзьями</p>
+  <div class="header-top">
+    <h1>⚽ Football Tournament</h1>
+    <nav class="header-nav" id="main-nav">
+      <button class="nav-btn active" data-page="home" onclick="switchPage('home')">🏠 Home</button>
+      <button class="nav-btn" data-page="turnir" onclick="switchPage('turnir')">🏆 Турнир</button>
+    </nav>
+  </div>
 </header>
+<div class="view-only-banner" id="view-only-banner" style="display:none;">👁 Режим просмотра — редактирование недоступно</div>
 
 <div class="container">
+
+<!-- ═══ ТУРНИР PAGE ═══ -->
+<div id="page-turnir">
 
   <div class="card" id="setup-card">
     <div class="card-title">Настройка турнира</div>
@@ -744,17 +787,32 @@
     </div>
   </div>
 
-  <!-- HISTORY -->
+  <!-- share link card (shown when tournament is active) -->
+  <div class="card" id="share-card" style="display:none;">
+    <div class="card-title">🔗 Ссылка для просмотра</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px;">Отправь эту ссылку — гости увидят турнир в реальном времени без возможности менять счёт.</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input id="share-link-input" readonly style="flex:1;min-width:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text-muted);font-size:0.75rem;padding:8px 10px;font-family:monospace;outline:none;" />
+      <button onclick="copyShareLink()" style="background:var(--green-dim);border:none;border-radius:8px;color:#fff;font-size:0.8rem;font-weight:600;padding:8px 14px;cursor:pointer;white-space:nowrap;font-family:inherit;" id="copy-share-btn">Копировать</button>
+    </div>
+  </div>
+
+</div><!-- /page-turnir -->
+
+<!-- ═══ HOME PAGE ═══ -->
+<div id="page-home" style="display:none;">
+
   <div class="card" id="history-section">
     <div class="card-title">История и статистика</div>
     <div id="history-stats"></div>
     <div id="history-list" class="history-list"></div>
     <div class="history-actions">
       <button class="btn btn-import" onclick="document.getElementById('import-file').click()">📥 Импорт JSON</button>
-      <button class="btn btn-reset" onclick="clearHistory()" style="font-size:0.78rem;padding:7px 12px;">Очистить историю</button>
     </div>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importTournament(event)">
   </div>
+
+</div><!-- /page-home -->
 
 </div>
 
@@ -1370,7 +1428,7 @@ function buildGroupMatch(match, gIdx, mIdx) {
       <div class="gm-team ${w1?'gm-winner':''}">${match.t1}${homeTag}</div>
       <div class="gm-result">${match.score1} : ${match.score2}</div>
       <div class="gm-team right ${w2?'gm-winner':''}">${match.t2}</div>`;
-    if (!state.savedToHistory) {
+    if (!state.savedToHistory && !VIEW_ONLY) {
       const editBtn = document.createElement('button');
       editBtn.className = 'gm-edit';
       editBtn.textContent = '✏️';
@@ -1379,7 +1437,7 @@ function buildGroupMatch(match, gIdx, mIdx) {
       row.appendChild(editBtn);
     }
     div.appendChild(row);
-  } else {
+  } else if (!VIEW_ONLY) {
     const row = document.createElement('div');
     row.className = 'gm-row';
     row.innerHTML = `
@@ -1396,6 +1454,14 @@ function buildGroupMatch(match, gIdx, mIdx) {
     btn.textContent = 'Подтвердить ✓';
     btn.onclick = () => confirmGroupMatch(gIdx, mIdx);
     div.appendChild(btn);
+  } else {
+    const row = document.createElement('div');
+    row.className = 'gm-row';
+    row.innerHTML = `
+      <div class="gm-team">${match.t1}${homeTag}</div>
+      <div class="gm-score" style="color:var(--text-dim);font-size:0.9rem;font-weight:700;">— : —</div>
+      <div class="gm-team right">${match.t2}</div>`;
+    div.appendChild(row);
   }
   return div;
 }
@@ -1469,6 +1535,8 @@ function createBracket() {
     propagateWinners();
     saveState();
     showBracket(names.length, rounds.length);
+    switchPage('turnir');
+    updateShareCard();
   } else {
     const groups = selectedFormat === 'league' ? buildLeague(names) : buildGroups(names);
     state = {
@@ -1484,6 +1552,8 @@ function createBracket() {
     saveState();
     showGroupStage();
   }
+  switchPage('turnir');
+  updateShareCard();
 }
 
 // ─── RESHUFFLE (keep players, reset scores) ───────────────────────────────────
@@ -1662,14 +1732,14 @@ function buildMatchSlot(match, rIdx, mIdx) {
   slot.appendChild(buildTeamRow(match, 1, rIdx, mIdx));
   slot.appendChild(buildTeamRow(match, 2, rIdx, mIdx));
 
-  if (isActive) {
+  if (isActive && !VIEW_ONLY) {
     const btn = document.createElement('button');
     btn.className = 'confirm-btn';
     btn.textContent = 'Подтвердить ✓';
     btn.onclick = () => confirmMatch(rIdx, mIdx);
     slot.appendChild(btn);
   }
-  if (isDone && !state.savedToHistory) {
+  if (isDone && !state.savedToHistory && !VIEW_ONLY) {
     const editBtn = document.createElement('button');
     editBtn.className = 'edit-match-btn';
     editBtn.textContent = '✏️ Изменить счёт';
@@ -1737,7 +1807,7 @@ function buildTeamRow(match, teamNum, rIdx, mIdx) {
       scoreEl.textContent = '';
     }
     row.appendChild(scoreEl);
-  } else if (match.t1 && match.t2 && name && name !== 'BYE') {
+  } else if (!VIEW_ONLY && match.t1 && match.t2 && name && name !== 'BYE') {
     const input = document.createElement('input');
     input.type = 'number';
     input.min = 0; input.max = 99;
@@ -1916,6 +1986,7 @@ async function pauseTournament() {
   document.getElementById('group-section').style.display = 'none';
   document.getElementById('bracket-section').style.display = 'none';
   document.getElementById('winner-section').style.display = 'none';
+  document.getElementById('share-card').style.display = 'none';
   document.getElementById('confetti-container').innerHTML = '';
   document.getElementById('bracket').innerHTML = '';
   document.getElementById('participants-preview').innerHTML = '';
@@ -1924,6 +1995,7 @@ async function pauseTournament() {
   const container = document.getElementById('participants-rows');
   if (container) container.innerHTML = '';
   addParticipantRow(); addParticipantRow();
+  switchPage('home');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   await renderSavedTournaments();
 }
@@ -1946,7 +2018,9 @@ async function loadSavesList() {
 
 async function resumeTournament(id) {
   let saveObj = null;
-  if (USE_SHEETS) {
+  if (USE_FIREBASE) {
+    saveObj = await fbGet('/saves/' + id).catch(() => null);
+  } else if (USE_SHEETS) {
     const saves = await loadSavesList();
     saveObj = saves.find(s => String(s.id) === String(id));
   } else {
@@ -1955,7 +2029,9 @@ async function resumeTournament(id) {
   if (!saveObj) return;
   state = saveObj;
   // Restore as active state
-  if (USE_SHEETS) {
+  if (USE_FIREBASE) {
+    await fbPut('/state', state).catch(() => {});
+  } else if (USE_SHEETS) {
     await sheetsGet({ action: 'saveState', data: JSON.stringify(state) }).catch(() => {});
   } else {
     localStorage.setItem('ft_state_v2', JSON.stringify(state));
@@ -1977,6 +2053,8 @@ async function resumeTournament(id) {
     renderBracket();
   }
   setSaveIndicator('▶ Продолжаем «' + state.name + '»', true);
+  switchPage('turnir');
+  updateShareCard();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -2597,7 +2675,118 @@ async function migrateToFirebase() {
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
+// ─── PAGE NAVIGATION ─────────────────────────────────────────────────────────
+let currentPage = 'home';
+
+function switchPage(page) {
+  currentPage = page;
+  document.getElementById('page-home').style.display = page === 'home' ? '' : 'none';
+  document.getElementById('page-turnir').style.display = page === 'turnir' ? '' : 'none';
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === page));
+}
+
+// ─── VIEW-ONLY MODE ───────────────────────────────────────────────────────────
+const VIEW_ONLY = new URLSearchParams(location.search).has('view');
+
+function applyViewOnly() {
+  document.getElementById('view-only-banner').style.display = '';
+  // hide all edit controls
+  document.querySelectorAll(
+    '.team-score-input, .gm-score-input, .btn-reset, .btn-primary, .pause-btn, #reshuffle-btn, #advance-btn, #setup-card, #share-card, .history-actions, .gm-edit, .edit-match-btn'
+  ).forEach(el => el.style.display = 'none');
+  // блокируем все будущие рендеры тоже
+  document.addEventListener('click', e => {
+    if (e.target.classList.contains('gm-edit') || e.target.classList.contains('edit-match-btn')) e.stopImmediatePropagation();
+  }, true);
+}
+
+// ─── SHARE LINK ───────────────────────────────────────────────────────────────
+function updateShareCard() {
+  if (VIEW_ONLY || !state.id) return;
+  const card = document.getElementById('share-card');
+  card.style.display = '';
+  const url = location.origin + location.pathname + '?view=' + encodeURIComponent(state.id);
+  document.getElementById('share-link-input').value = url;
+}
+
+function copyShareLink() {
+  const inp = document.getElementById('share-link-input');
+  navigator.clipboard.writeText(inp.value).then(() => {
+    const btn = document.getElementById('copy-share-btn');
+    btn.textContent = '✓ Скопировано';
+    setTimeout(() => btn.textContent = 'Копировать', 2000);
+  });
+}
+
+// ─── VIEW-ONLY LOAD ───────────────────────────────────────────────────────────
+async function loadViewOnly() {
+  const tournamentId = String(new URLSearchParams(location.search).get('view'));
+  showLoading('Загрузка турнира...');
+  let loaded = false;
+
+  // 1. Try Firebase (active state + history + saves)
+  if (USE_FIREBASE) {
+    try {
+      const s = await fbGet('/state');
+      if (s && String(s.id) === tournamentId) { Object.assign(state, s); loaded = true; }
+    } catch(e) {}
+    if (!loaded) {
+      try {
+        const entry = await fbGet('/history/' + tournamentId);
+        if (entry && entry.players) { Object.assign(state, entry); loaded = true; }
+      } catch(e) {}
+    }
+    if (!loaded) {
+      try {
+        const entry = await fbGet('/saves/' + tournamentId);
+        if (entry && entry.players) { Object.assign(state, entry); loaded = true; }
+      } catch(e) {}
+    }
+  }
+
+  // 2. Fallback: localStorage (for local dev)
+  if (!loaded) {
+    try {
+      const raw = localStorage.getItem('ft_state_v2');
+      if (raw) { const s = JSON.parse(raw); if (s && String(s.id) === tournamentId) { Object.assign(state, s); loaded = true; } }
+    } catch(e) {}
+  }
+  if (!loaded) {
+    try {
+      const raw = localStorage.getItem('ft_history_v2');
+      if (raw) {
+        const hist = JSON.parse(raw);
+        const entry = Array.isArray(hist) ? hist.find(e => String(e.id) === tournamentId) : null;
+        if (entry) { Object.assign(state, entry); loaded = true; }
+      }
+    } catch(e) {}
+  }
+
+  hideLoading();
+  if (!loaded) {
+    document.querySelector('.container').innerHTML = '<div class="card" style="text-align:center;padding:40px;color:var(--text-muted);">Турнир не найден или завершён.</div>';
+    return;
+  }
+  switchPage('turnir');
+  document.getElementById('main-nav').style.display = 'none';
+  try {
+    if (state.format === 'group' || state.format === 'group+playoff' || state.format === 'league') {
+      if (state.groups && state.groups.length) showGroupStage();
+      if (state.rounds && state.rounds.length) showBracket(state.players.length, state.rounds.length);
+    } else {
+      if (state.rounds && state.rounds.length) showBracket(state.players.length, state.rounds.length);
+    }
+  } catch(err) {
+    console.error('view-only render error:', err);
+  }
+  applyViewOnly();
+}
+
 (async function init() {
+  if (VIEW_ONLY) { await loadViewOnly(); return; }
+
+  switchPage('home');
+
   showLoading('Подключение к Google Sheets...');
   const [ok] = await Promise.all([loadState(), renderHistory()]);
   hideLoading();
@@ -2636,6 +2825,8 @@ async function migrateToFirebase() {
         showWinner(finalMatch.winner, true);
       }
     }
+    switchPage('turnir');
+    updateShareCard();
   } else {
     updatePreview();
     addParticipantRow(); addParticipantRow();
