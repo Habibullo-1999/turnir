@@ -751,7 +751,7 @@
     <div id="history-list" class="history-list"></div>
     <div class="history-actions">
       <button class="btn btn-import" onclick="document.getElementById('import-file').click()">📥 Импорт JSON</button>
-
+      <button class="btn btn-reset" onclick="clearHistory()" style="font-size:0.78rem;padding:7px 12px;">Очистить историю</button>
     </div>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importTournament(event)">
   </div>
