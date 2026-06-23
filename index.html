@@ -529,6 +529,17 @@
   .edit-match-btn { background:none;border:none;color:var(--text-dim);font-size:0.7rem;cursor:pointer;padding:2px 6px;border-radius:4px;transition:color 0.2s;margin-top:2px;width:100%;text-align:center; }
   .edit-match-btn:hover { color:var(--green); }
 
+  .saves-list { display:flex;flex-direction:column;gap:8px;margin-top:10px; }
+  .save-item { display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;cursor:pointer;transition:border-color 0.2s; }
+  .save-item:hover { border-color:var(--green-dim); }
+  .save-item-info { flex:1;min-width:0; }
+  .save-item-name { font-weight:600;font-size:0.88rem;color:var(--text); }
+  .save-item-meta { font-size:0.72rem;color:var(--text-dim);margin-top:2px; }
+  .save-item-del { background:none;border:none;color:var(--text-dim);font-size:0.85rem;cursor:pointer;padding:4px;border-radius:4px;flex-shrink:0;transition:color 0.2s; }
+  .save-item-del:hover { color:var(--red); }
+  .pause-btn { background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);color:var(--green);font-size:0.78rem;padding:6px 12px;border-radius:8px;cursor:pointer;font-family:inherit;font-weight:600;transition:background 0.2s; }
+  .pause-btn:hover { background:rgba(34,197,94,0.15); }
+
   .stats-table { width:100%; border-collapse:collapse; font-size:0.85rem; margin-bottom:16px; }
   .stats-table th { text-align:center; padding:8px 6px; font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); border-bottom:1px solid var(--border); font-weight:600; }
   .stats-table th:first-child { text-align:left; }
@@ -660,6 +671,7 @@
         <button class="format-btn active" data-fmt="playoff" onclick="selectFormat('playoff')">🏆 Плей-офф</button>
         <button class="format-btn" data-fmt="group" onclick="selectFormat('group')">📊 Групповой</button>
         <button class="format-btn" data-fmt="group+playoff" onclick="selectFormat('group+playoff')">📊→🏆 Группы + Плей-офф</button>
+        <button class="format-btn" data-fmt="league" onclick="selectFormat('league')">🏅 Лига</button>
       </div>
     </div>
 
@@ -667,6 +679,11 @@
       <button class="btn btn-primary" onclick="createBracket()">⚡ Создать сетку</button>
     </div>
     <div id="save-indicator">Нет сохранённого турнира</div>
+
+    <div id="saved-tournaments-wrap" style="display:none;margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+      <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--green);margin-bottom:4px;display:flex;align-items:center;gap:8px;"><span style="display:block;width:3px;height:14px;background:var(--green);border-radius:2px;"></span>Сохранённые турниры</div>
+      <div id="saves-list" class="saves-list"></div>
+    </div>
   </div>
 
   <div class="card" id="group-section" style="display:none;">
@@ -677,6 +694,7 @@
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-secondary" id="advance-btn" onclick="advanceToPlayoff()" style="display:none;">⚡ К плей-офф</button>
+        <button class="pause-btn" onclick="pauseTournament()">⏸ Пауза</button>
         <button class="btn btn-reset" onclick="resetTournament()">✕ Сброс</button>
       </div>
     </div>
@@ -691,6 +709,7 @@
       </div>
       <div class="bracket-actions">
         <button class="btn btn-secondary" onclick="reshuffleBracket()" id="reshuffle-btn" title="Перемешать заново (сбросит все результаты)">🔀 Рефреш</button>
+        <button class="pause-btn" onclick="pauseTournament()">⏸ Пауза</button>
         <button class="btn btn-reset" onclick="resetTournament()">✕ Сброс</button>
       </div>
     </div>
@@ -844,7 +863,7 @@ function selectFormat(fmt) {
 
 // ─── GOOGLE SHEETS CONFIG ────────────────────────────────────────────────────
 // Вставь сюда URL своего Apps Script Web App:
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxEX-sJz1YcfHTF_Nz9JXsITrf2rcBHe1XBo7evhmIiCi7XxkiT8txSHEPvkw0cuLmAnQ/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyK4mEQDc0yOBcG8pCVyXTQ6YwXPy1OHKC0tL59z7Na4hFYgvgcsd3Mr6BxCXmNwt-pWQ/exec';
 
 const USE_SHEETS = SHEETS_URL.startsWith('https://script.google.com/macros/s/');
 
@@ -1119,9 +1138,13 @@ function calcStandings(group) {
 function showGroupStage() {
   document.getElementById('group-section').style.display = 'block';
   document.getElementById('group-title').textContent = state.name;
-  document.getElementById('group-subtitle').textContent =
-    state.players.length + ' участников · ' + state.groups.length + ' групп' +
-    (state.format === 'group+playoff' ? ' → плей-офф' : '');
+  const totalMatches = state.format === 'league'
+    ? state.players.length * (state.players.length - 1)
+    : null;
+  document.getElementById('group-subtitle').textContent = state.format === 'league'
+    ? `${state.players.length} участников · ${totalMatches} матчей · каждый с каждым дважды`
+    : state.players.length + ' участников · ' + state.groups.length + ' групп' +
+      (state.format === 'group+playoff' ? ' → плей-офф' : '');
   renderGroupStage();
   document.getElementById('group-section').scrollIntoView({ behavior:'smooth' });
 }
@@ -1156,9 +1179,77 @@ function computeGroupTours(group) {
   return tours;
 }
 
+function buildLeague(players) {
+  const ps = shuffle(players);
+  const matches = [];
+  // First leg (home)
+  for (let i = 0; i < ps.length; i++)
+    for (let j = 0; j < ps.length; j++)
+      if (i !== j) matches.push({ t1: ps[i], t2: ps[j], score1: null, score2: null, played: false, home: true });
+  return [{ name: 'Лига', players: ps, matches }];
+}
+
+function computeLeagueTours(group) {
+  const ps = group.players.slice();
+  if (ps.length % 2 !== 0) ps.push('BYE');
+  const n = ps.length;
+  const numTours = n - 1;
+
+  // Build match index lookup: "t1|t2" → [mIdx, ...]
+  const matchMap = {};
+  group.matches.forEach((m, i) => {
+    const key = m.t1 + '|' + m.t2;
+    if (!matchMap[key]) matchMap[key] = [];
+    matchMap[key].push(i);
+  });
+  // Track which match index was already used
+  const used = new Set();
+
+  function pickMatch(a, b) {
+    const candidates = matchMap[a + '|' + b] || [];
+    const idx = candidates.find(i => !used.has(i));
+    if (idx !== undefined) { used.add(idx); return idx; }
+    return null;
+  }
+
+  const allTours = [];
+  const rotating = ps.slice(1);
+
+  // First leg
+  for (let t = 0; t < numTours; t++) {
+    const indices = [];
+    const pairs = [[ps[0], rotating[0]]];
+    for (let i = 1; i < n / 2; i++) pairs.push([rotating[i], rotating[n - 1 - i]]);
+    pairs.forEach(([a, b]) => {
+      if (a === 'BYE' || b === 'BYE') return;
+      const idx = pickMatch(a, b); if (idx !== null) indices.push(idx);
+    });
+    if (indices.length) allTours.push(indices);
+    rotating.push(rotating.shift());
+  }
+
+  // Reset rotation for second leg (reverse fixtures)
+  const rotating2 = ps.slice(1);
+  for (let t = 0; t < numTours; t++) {
+    const indices = [];
+    const pairs = [[ps[0], rotating2[0]]];
+    for (let i = 1; i < n / 2; i++) pairs.push([rotating2[i], rotating2[n - 1 - i]]);
+    pairs.forEach(([a, b]) => {
+      if (a === 'BYE' || b === 'BYE') return;
+      // Second leg: swap home/away
+      const idx = pickMatch(b, a); if (idx !== null) indices.push(idx);
+    });
+    if (indices.length) allTours.push(indices);
+    rotating2.push(rotating2.shift());
+  }
+
+  return allTours;
+}
+
 function renderGroupStage() {
   const container = document.getElementById('groups-container');
   container.innerHTML = '';
+  const isLeague = state.format === 'league';
   const advanceCount = state.format === 'group+playoff' ? Math.min(2, Math.floor(state.groups[0].players.length / 2) + 1) : 0;
 
   state.groups.forEach((group, gIdx) => {
@@ -1168,7 +1259,7 @@ function renderGroupStage() {
 
     const gname = document.createElement('div');
     gname.className = 'group-name';
-    gname.textContent = group.name;
+    gname.textContent = isLeague ? '🏅 Лига' : group.name;
     block.appendChild(gname);
 
     const table = document.createElement('table');
@@ -1194,7 +1285,8 @@ function renderGroupStage() {
     table.appendChild(tbody);
     block.appendChild(table);
 
-    const tours = computeGroupTours(group);
+    const tours = isLeague ? computeLeagueTours(group) : computeGroupTours(group);
+    const halfLen = isLeague ? tours.length / 2 : -1;
     const toursDiv = document.createElement('div');
     toursDiv.className = 'group-tours';
     tours.forEach((matchIndices, tIdx) => {
@@ -1202,7 +1294,13 @@ function renderGroupStage() {
       col.className = 'group-tour';
       const lbl = document.createElement('div');
       lbl.className = 'group-tour-label';
-      lbl.textContent = 'Тур ' + (tIdx + 1);
+      if (isLeague) {
+        const leg = tIdx < halfLen ? '1 круг' : '2 круг';
+        const tourNum = tIdx < halfLen ? tIdx + 1 : tIdx - halfLen + 1;
+        lbl.textContent = `${leg} · Тур ${tourNum}`;
+      } else {
+        lbl.textContent = 'Тур ' + (tIdx + 1);
+      }
       col.appendChild(lbl);
       matchIndices.forEach(mIdx => {
         col.appendChild(buildGroupMatch(group.matches[mIdx], gIdx, mIdx));
@@ -1217,9 +1315,7 @@ function renderGroupStage() {
   const advBtn = document.getElementById('advance-btn');
   if (advBtn) advBtn.style.display = (state.format === 'group+playoff' && allGroupsDone) ? 'inline-flex' : 'none';
 
-  // For pure group format, show standings winner when all done
-  if (state.format === 'group' && allGroupsDone && !state.savedToHistory) {
-    // Find overall best team
+  if ((state.format === 'group' || state.format === 'league') && allGroupsDone && !state.savedToHistory) {
     const allStandings = state.groups.flatMap(g => calcStandings(g));
     allStandings.sort((a,b) => b.pts-a.pts || b.diff-a.diff || b.gf-a.gf);
     if (allStandings.length) showWinner(allStandings[0].name);
@@ -1230,12 +1326,13 @@ function buildGroupMatch(match, gIdx, mIdx) {
   const div = document.createElement('div');
   div.className = 'group-match' + (match.played ? ' played' : ' active');
 
+  const homeTag = (state.format === 'league' && match.home) ? '<span style="font-size:0.6rem;color:var(--text-dim);margin-left:3px;">🏠</span>' : '';
   if (match.played) {
     const row = document.createElement('div');
     row.className = 'gm-row';
     const w1 = match.score1 > match.score2, w2 = match.score2 > match.score1;
     row.innerHTML = `
-      <div class="gm-team ${w1?'gm-winner':''}">${match.t1}</div>
+      <div class="gm-team ${w1?'gm-winner':''}">${match.t1}${homeTag}</div>
       <div class="gm-result">${match.score1} : ${match.score2}</div>
       <div class="gm-team right ${w2?'gm-winner':''}">${match.t2}</div>`;
     if (!state.savedToHistory) {
@@ -1251,7 +1348,7 @@ function buildGroupMatch(match, gIdx, mIdx) {
     const row = document.createElement('div');
     row.className = 'gm-row';
     row.innerHTML = `
-      <div class="gm-team">${match.t1}</div>
+      <div class="gm-team">${match.t1}${homeTag}</div>
       <div class="gm-score">
         <input type="number" min="0" max="99" class="gm-score-input" id="gm-${gIdx}-${mIdx}-1" placeholder="0">
         <span class="gm-sep">:</span>
@@ -1338,7 +1435,7 @@ function createBracket() {
     saveState();
     showBracket(names.length, rounds.length);
   } else {
-    const groups = buildGroups(names);
+    const groups = selectedFormat === 'league' ? buildLeague(names) : buildGroups(names);
     state = {
       id: Date.now(),
       name: document.getElementById('tournament-name').value.trim() || 'Турнир',
@@ -1745,6 +1842,135 @@ function launchConfetti() {
   setTimeout(() => { container.innerHTML = ''; }, 6000);
 }
 
+// ─── SAVES (multiple tournaments) ─────────────────────────────────────────────
+const SAVES_KEY = 'ft_saves_v2';
+
+function getSavesLocal() {
+  try { return JSON.parse(localStorage.getItem(SAVES_KEY) || '[]'); } catch { return []; }
+}
+function setSavesLocal(saves) {
+  localStorage.setItem(SAVES_KEY, JSON.stringify(saves));
+}
+
+async function pauseTournament() {
+  if (!state.name && !state.players.length) return;
+  const saveObj = {
+    ...state,
+    savedAt: new Date().toLocaleString('ru'),
+  };
+  // Save to Saves storage
+  if (USE_SHEETS) {
+    showLoading('Сохранение...');
+    await sheetsGet({ action: 'savePaused', data: JSON.stringify(saveObj) }).catch(() => {});
+    hideLoading();
+  } else {
+    const saves = getSavesLocal();
+    const idx = saves.findIndex(s => s.id === saveObj.id);
+    if (idx !== -1) saves[idx] = saveObj; else saves.push(saveObj);
+    setSavesLocal(saves);
+  }
+  // Clear active state
+  localStorage.removeItem('ft_state_v2');
+  if (USE_SHEETS) sheetsGet({ action: 'saveState', data: 'null' }).catch(() => {});
+  state = { name: '', players: [], rounds: [], roundLabels: [] };
+  document.getElementById('group-section').style.display = 'none';
+  document.getElementById('bracket-section').style.display = 'none';
+  document.getElementById('winner-section').style.display = 'none';
+  document.getElementById('confetti-container').innerHTML = '';
+  document.getElementById('bracket').innerHTML = '';
+  document.getElementById('participants-preview').innerHTML = '';
+  document.getElementById('tournament-name').value = '';
+  document.getElementById('save-indicator').textContent = 'Нет сохранённого турнира';
+  const container = document.getElementById('participants-rows');
+  if (container) container.innerHTML = '';
+  addParticipantRow(); addParticipantRow();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  await renderSavedTournaments();
+}
+
+async function loadSavesList() {
+  if (USE_SHEETS) {
+    try {
+      const res = await sheetsGet({ action: 'listSaves' });
+      return JSON.parse(await res.text()) || [];
+    } catch { return []; }
+  }
+  return getSavesLocal();
+}
+
+async function resumeTournament(id) {
+  let saveObj = null;
+  if (USE_SHEETS) {
+    const saves = await loadSavesList();
+    saveObj = saves.find(s => String(s.id) === String(id));
+  } else {
+    saveObj = getSavesLocal().find(s => String(s.id) === String(id));
+  }
+  if (!saveObj) return;
+  state = saveObj;
+  // Restore as active state
+  if (USE_SHEETS) {
+    await sheetsGet({ action: 'saveState', data: JSON.stringify(state) }).catch(() => {});
+  } else {
+    localStorage.setItem('ft_state_v2', JSON.stringify(state));
+  }
+  // Remove from saves
+  await deleteSaveEntry(id);
+  // Render the tournament
+  if (state.format === 'group' || state.format === 'group+playoff' || state.format === 'league') {
+    if (state.groups && state.groups.length) {
+      showGroupStage();
+      renderGroupStage();
+    }
+    if (state.rounds && state.rounds.length) {
+      showBracket(state.players.length, state.rounds.length);
+      renderBracket();
+    }
+  } else {
+    showBracket(state.players.length, state.rounds.length);
+    renderBracket();
+  }
+  setSaveIndicator('▶ Продолжаем «' + state.name + '»', true);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function deleteSaveEntry(id) {
+  if (USE_SHEETS) {
+    await sheetsGet({ action: 'deleteSave', id: String(id) }).catch(() => {});
+  } else {
+    const saves = getSavesLocal().filter(s => String(s.id) !== String(id));
+    setSavesLocal(saves);
+  }
+}
+
+async function deleteSaveAndRefresh(id) {
+  if (!confirm('Удалить это сохранение?')) return;
+  await deleteSaveEntry(id);
+  await renderSavedTournaments();
+}
+
+async function renderSavedTournaments() {
+  const saves = await loadSavesList();
+  const wrap = document.getElementById('saved-tournaments-wrap');
+  const list = document.getElementById('saves-list');
+  if (!saves.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  list.innerHTML = '';
+  const formatLabel = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы + Плей-офф', league: '🏅 Лига' };
+  saves.forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'save-item';
+    item.innerHTML = `
+      <div class="save-item-info">
+        <div class="save-item-name">${s.name || 'Без названия'}</div>
+        <div class="save-item-meta">${formatLabel[s.format] || s.format || ''} · ${(s.players||[]).length} участников · ${s.savedAt || ''}</div>
+      </div>
+      <button class="pause-btn" onclick="resumeTournament('${s.id}')">▶ Продолжить</button>
+      <button class="save-item-del" onclick="deleteSaveAndRefresh('${s.id}')" title="Удалить">✕</button>`;
+    list.appendChild(item);
+  });
+}
+
 // ─── RESET ────────────────────────────────────────────────────────────────────
 function resetTournament() {
   if (!confirm('Сбросить турнир полностью?')) return;
@@ -2117,13 +2343,13 @@ async function renderHistory() {
               ? `<img src="${cm.icon}" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;">`
               : `<span style="font-size:0.95rem;">${cm.flag || '⚽'}</span>`;
             const count = cm.count > 1 ? `<span style="font-size:0.65rem;color:var(--text-dim);margin-left:1px;">${cm.count}</span>` : '';
-            return `<span title="${cm.club}" style="display:inline-flex;align-items:center;gap:1px;margin-right:4px;">${icon}${count}</span>`;
+            return `<span title="${cm.club}${cm.league ? ' · '+cm.league : ''}" style="display:inline-flex;align-items:center;gap:2px;margin-right:6px;">${icon}${count}</span>`;
           }).join('');
       }
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${isChamp ? '👑 ' : ''}${name}</td>
-        <td style="text-align:center">${clubCell}</td>
+        <td style="text-align:center;vertical-align:middle;">${clubCell}</td>
         <td class="td-gold">${s.trophies}</td>
         <td class="td-green">${s.wins}</td>
         <td class="td-red">${losses}</td>
@@ -2151,7 +2377,7 @@ async function renderHistory() {
     item.innerHTML = `
       <div>
         <div class="history-item-name">${entry.name || 'Турнир'}</div>
-        <div class="history-item-meta">${entry.date} · ${(entry.players || []).length} участников</div>
+        <div class="history-item-meta">${entry.date} · ${(entry.players || []).length} участников · ${ {playoff:'🏆 Плей-офф', group:'📊 Групповой', 'group+playoff':'📊→🏆 Группы+ПО', league:'🏅 Лига'}[entry.format] || '🏆 Плей-офф'}</div>
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <div class="history-item-winner">${entry.winner ? '🏆 ' + entry.winner : '—'}</div>
@@ -2238,7 +2464,7 @@ async function showWinner(name, fromLoad = false) {
     }
     updatePreview();
 
-    if (state.format === 'group' || state.format === 'group+playoff') {
+    if (state.format === 'group' || state.format === 'group+playoff' || state.format === 'league') {
       showGroupStage();
       if (state.rounds && state.rounds.length) {
         showBracket(state.players.length, state.rounds.length);
@@ -2259,6 +2485,7 @@ async function showWinner(name, fromLoad = false) {
     addParticipantRow(); addParticipantRow();
   }
   loadKnownPlayers();
+  renderSavedTournaments();
 })();
 </script>
 </body>
