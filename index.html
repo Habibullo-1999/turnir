@@ -1335,13 +1335,7 @@ function renderGroupStage() {
       col.className = 'group-tour';
       const lbl = document.createElement('div');
       lbl.className = 'group-tour-label';
-      if (isLeague) {
-        const leg = tIdx < halfLen ? '1 круг' : '2 круг';
-        const tourNum = tIdx < halfLen ? tIdx + 1 : tIdx - halfLen + 1;
-        lbl.textContent = `${leg} · Тур ${tourNum}`;
-      } else {
-        lbl.textContent = 'Тур ' + (tIdx + 1);
-      }
+      lbl.textContent = 'Тур ' + (tIdx + 1);
       col.appendChild(lbl);
       matchIndices.forEach(mIdx => {
         col.appendChild(buildGroupMatch(group.matches[mIdx], gIdx, mIdx));
