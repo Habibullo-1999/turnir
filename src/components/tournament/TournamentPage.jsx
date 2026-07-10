@@ -8,7 +8,7 @@ import SaveIndicator from '../SaveIndicator.jsx';
 import { useTournament } from '../../context/TournamentContext.jsx';
 import {
   confirmBracketScore, confirmBracketPenalty, clearBracketMatch,
-  confirmGroupScore, clearGroupMatch, advanceGroupsToPlayoff,
+  confirmGroupScore, clearGroupMatch, advanceGroupsToPlayoff, reopenTournament,
 } from '../../utils/matchActions.js';
 import { swapBracketSlots, movePlayerToGroup } from '../../utils/manualRearrange.js';
 
@@ -67,6 +67,10 @@ export default function TournamentPage({ onHome }) {
       setAdvanceError(err.message);
     }
   }
+  function handleReopen() {
+    setJustFinished(false);
+    mutate(draft => reopenTournament(draft));
+  }
   function handleNewTournament() {
     setJustFinished(false);
     closeTournament();
@@ -110,7 +114,7 @@ export default function TournamentPage({ onHome }) {
       )}
 
       {tournament.status === 'finished' && tournament.winner && (
-        <WinnerBanner tournament={tournament} celebrate={justFinished} onNewTournament={handleNewTournament} />
+        <WinnerBanner tournament={tournament} celebrate={justFinished} onNewTournament={handleNewTournament} onReopen={handleReopen} />
       )}
 
       {tournament.status === 'active' && <ShareCard tournamentId={tournament.id} />}

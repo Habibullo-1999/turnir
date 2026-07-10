@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { listHistory } from '../../services/tournaments.js';
+import { listHistory, reopenFinishedTournament } from '../../services/tournaments.js';
 import HistoryModal from './HistoryModal.jsx';
 
 const FORMAT_LABEL = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы+ПО', league: '🏅 Лига' };
@@ -56,6 +56,12 @@ export default function HistoryList() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [history.length]);
+
+  async function handleReopen(entry) {
+    if (!confirm(`Вернуть турнир «${entry.name || 'Турнир'}» в игру и снять пометку "завершён"?`)) return;
+    await reopenFinishedTournament(entry);
+    load();
+  }
 
   if (loading) return <div className="card">Загрузка истории…</div>;
   if (error) {
@@ -131,6 +137,7 @@ export default function HistoryList() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <div className="history-item-winner">{entry.winner ? '🏆 ' + entry.winner : '—'}</div>
               <button className="btn btn-reset" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => setOpenEntry(entry)}>📊 Сетка</button>
+              <button className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => handleReopen(entry)}>↩️ Вернуть</button>
             </div>
           </div>
         ))}

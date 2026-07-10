@@ -2,6 +2,15 @@ import { propagateWinners, nextPow2, shuffle, buildRounds } from './bracket.js';
 import { calcStandings } from './groups.js';
 import { computeTournamentResult, isTournamentComplete } from './computeStats.js';
 
+// Un-finishes a tournament so a mistaken result can be corrected: flips it
+// back to 'active', which re-enables the "✏️ Изменить счёт" buttons. Winner
+// and stats are left as-is until the corrected match is re-confirmed —
+// finishIfComplete() recomputes and overwrites them once the tournament is
+// complete again.
+export function reopenTournament(draft) {
+  draft.status = 'active';
+}
+
 function finishIfComplete(draft) {
   if (draft.status === 'finished') return;
   if (!isTournamentComplete(draft)) return;

@@ -39,6 +39,13 @@ export function finishTournament(tournament) {
   return saveTournament({ ...tournament, status: 'finished' });
 }
 
+// Reopens a tournament straight from the History list (i.e. one that's no
+// longer the "current" tournament in the editor) so a mistaken result can be
+// fixed after the fact — moves it back into the active list.
+export function reopenFinishedTournament(tournament) {
+  return saveTournament({ ...tournament, status: 'active' });
+}
+
 export async function getTournament(id) {
   return fbGet(`/tournaments/${id}`);
 }
