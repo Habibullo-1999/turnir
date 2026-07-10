@@ -72,7 +72,7 @@ export default function HistoryList() {
 
   const sortedStats = aggregateStats(history);
   const playerClubs = collectPlayerClubs(history);
-  const listDesc = [...history].reverse();
+  const listDesc = history; // already sorted newest-first by listHistory()
   const totalPages = Math.max(1, Math.ceil(listDesc.length / PAGE_SIZE));
   const pageItems = listDesc.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 

@@ -49,14 +49,22 @@ async function listAll() {
   return Object.values(data);
 }
 
+// Migrated tournaments (from the old /state, /saves, /history paths) never
+// had a createdAt field — fall back to the numeric prefix of their id
+// (old ids were a bare timestamp, new ones are `${timestamp}-${suffix}`),
+// so ordering stays chronological either way.
+function sortKey(t) {
+  return t.createdAt || parseInt(t.id, 10) || 0;
+}
+
 export async function listActive() {
   const all = await listAll();
-  return all.filter(t => t.status === 'active').sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return all.filter(t => t.status === 'active').sort((a, b) => sortKey(b) - sortKey(a));
 }
 
 export async function listHistory() {
   const all = await listAll();
-  return all.filter(t => t.status === 'finished').sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return all.filter(t => t.status === 'finished').sort((a, b) => sortKey(b) - sortKey(a));
 }
 
 // Deliberately the only place a delete can happen, and it refuses outright

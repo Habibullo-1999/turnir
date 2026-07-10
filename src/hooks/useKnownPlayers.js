@@ -9,8 +9,10 @@ export function useKnownPlayers(history) {
     history.forEach(entry => (entry.players || []).forEach(p => names.add(p)));
 
     return [...names].sort().map(name => {
+      // history is newest-first (see listHistory()), so the first match here
+      // is the player's most recently used club.
       let meta = null;
-      for (let i = history.length - 1; i >= 0; i--) {
+      for (let i = 0; i < history.length; i++) {
         if (history[i].playerMeta && history[i].playerMeta[name]) {
           meta = history[i].playerMeta[name];
           break;
