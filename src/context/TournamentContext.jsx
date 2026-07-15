@@ -25,6 +25,36 @@ export function TournamentProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tournament]);
 
+  // Keeps `?tid=` in the URL pointed at the open tournament so a page
+  // refresh can reopen the same one (see the mount effect below). Only ever
+  // *sets* it reactively — clearing it is done explicitly by whoever closes
+  // the tournament, otherwise this would race the mount effect's own
+  // "open the id already in the URL" read and erase it before that runs.
+  useEffect(() => {
+    if (!tournament) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('tid') !== tournament.id) {
+      url.searchParams.set('tid', tournament.id);
+      window.history.replaceState(null, '', url);
+    }
+  }, [tournament]);
+
+  const clearTidParam = () => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('tid')) {
+      url.searchParams.delete('tid');
+      window.history.replaceState(null, '', url);
+    }
+  };
+
+  // On first mount, reopen whatever tournament id is in the URL (set by the
+  // effect above on a previous visit), so a refresh restores the same view.
+  useEffect(() => {
+    const tid = new URLSearchParams(window.location.search).get('tid');
+    if (tid) openTournament(tid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const startTournament = useCallback(async (payload) => {
     const created = await createTournamentApi(payload);
     setTournament(created);
@@ -43,12 +73,14 @@ export function TournamentProvider({ children }) {
       if (!found) {
         setOpenError('Турнир не найден.');
         setTournament(null);
+        clearTidParam();
       } else {
         setTournament(found);
       }
     } catch (err) {
       setOpenError(`Не удалось загрузить турнир: ${err.message}`);
       setTournament(null);
+      clearTidParam();
     } finally {
       setOpening(false);
     }
@@ -69,6 +101,7 @@ export function TournamentProvider({ children }) {
   const closeTournament = useCallback(() => {
     setTournament(null);
     setOpenError(null);
+    clearTidParam();
   }, []);
 
   const value = {

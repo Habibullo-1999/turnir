@@ -24,20 +24,6 @@ function aggregateStats(history) {
   return Object.entries(allStats).sort((a, b) => b[1].trophies - a[1].trophies || b[1].wins - a[1].wins);
 }
 
-function collectPlayerClubs(history) {
-  const playerClubs = {};
-  history.forEach(e => {
-    Object.entries(e.playerMeta || {}).forEach(([p, m]) => {
-      if (!m || !m.club) return;
-      if (!playerClubs[p]) playerClubs[p] = new Map();
-      const existing = playerClubs[p].get(m.club);
-      if (existing) existing.count++;
-      else playerClubs[p].set(m.club, { ...m, count: 1 });
-    });
-  });
-  return playerClubs;
-}
-
 export default function HistoryList() {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
@@ -77,7 +63,6 @@ export default function HistoryList() {
   }
 
   const sortedStats = aggregateStats(history);
-  const playerClubs = collectPlayerClubs(history);
   const listDesc = history; // already sorted newest-first by listHistory()
   const totalPages = Math.max(1, Math.ceil(listDesc.length / PAGE_SIZE));
   const pageItems = listDesc.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -90,7 +75,7 @@ export default function HistoryList() {
         <table className="stats-table">
           <thead>
             <tr>
-              <th>Игрок</th><th>Клуб</th><th>🏆</th><th>✅</th><th>❌</th><th>⚽</th><th>🚫</th><th>±</th>
+              <th>Игрок</th><th>🏆</th><th>Игр</th><th>✅</th><th>❌</th><th>⚽</th><th>🚫</th><th>±</th>
             </tr>
           </thead>
           <tbody>
@@ -98,21 +83,11 @@ export default function HistoryList() {
               const isChamp = i === 0 && s.trophies > 0;
               const losses = s.played - s.wins;
               const diff = s.goalsFor - s.goalsAgainst;
-              const clubs = playerClubs[name];
               return (
                 <tr key={name}>
                   <td>{isChamp ? '👑 ' : ''}{name}</td>
-                  <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                    {clubs && clubs.size ? Array.from(clubs.values()).sort((a, b) => b.count - a.count).map(cm => (
-                      <span key={cm.club} title={`${cm.club}${cm.league ? ' · ' + cm.league : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, marginRight: 6 }}>
-                        {cm.icon
-                          ? <img src={`${import.meta.env.BASE_URL}${cm.icon}`} style={{ width: 18, height: 18, objectFit: 'contain', verticalAlign: 'middle' }} alt="" />
-                          : <span style={{ fontSize: '0.95rem' }}>{cm.flag || '⚽'}</span>}
-                        {cm.count > 1 && <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', marginLeft: 1 }}>{cm.count}</span>}
-                      </span>
-                    )) : '—'}
-                  </td>
                   <td className="td-gold">{s.trophies}</td>
+                  <td>{s.played}</td>
                   <td className="td-green">{s.wins}</td>
                   <td className="td-red">{losses}</td>
                   <td>{s.goalsFor}</td>
