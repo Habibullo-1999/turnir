@@ -1,14 +1,25 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { listHistory, reopenFinishedTournament } from '../../services/tournaments.js';
+import { computeTournamentResult } from '../../utils/computeStats.js';
 import HistoryModal from './HistoryModal.jsx';
 
 const FORMAT_LABEL = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы+ПО', league: '🏅 Лига' };
 const PAGE_SIZE = 10;
 
+// Recomputes from the raw match data instead of trusting `entry.stats`, which
+// is only a cache written once when the tournament finished — it can be
+// stale (e.g. it predates a fix to the win/draw/loss counting logic) while
+// the underlying groups/rounds are always accurate. Falls back to the cached
+// snapshot for legacy entries migrated without raw match data.
+function statsFor(entry) {
+  if (entry.groups || entry.rounds) return computeTournamentResult(entry).stats;
+  return entry.stats || {};
+}
+
 function aggregateStats(history) {
   const allStats = {};
   history.forEach(entry => {
-    Object.entries(entry.stats || {}).forEach(([player, s]) => {
+    Object.entries(statsFor(entry)).forEach(([player, s]) => {
       // Firebase stores objects keyed by small-integer-like strings (e.g. a
       // player literally named "1") as sparse arrays, so entry 0 can be null.
       if (!s) return;
