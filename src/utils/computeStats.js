@@ -1,7 +1,7 @@
 import { calcStandings } from './groups.js';
 
 function emptyStat() {
-  return { wins: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
+  return { wins: 0, draws: 0, losses: 0, played: 0, goalsFor: 0, goalsAgainst: 0 };
 }
 
 // Per-player wins/played/goals across one tournament, plus the champion's
@@ -29,7 +29,8 @@ export function computeTournamentResult(tournament) {
       stats[m.t1].played++; stats[m.t2].played++;
       stats[m.t1].goalsFor += m.score1; stats[m.t1].goalsAgainst += m.score2;
       stats[m.t2].goalsFor += m.score2; stats[m.t2].goalsAgainst += m.score1;
-      if (m.winner === m.t1) stats[m.t1].wins++; else stats[m.t2].wins++;
+      if (m.winner === m.t1) { stats[m.t1].wins++; stats[m.t2].losses++; }
+      else { stats[m.t2].wins++; stats[m.t1].losses++; }
     });
   });
 
@@ -41,8 +42,9 @@ export function computeTournamentResult(tournament) {
       stats[m.t1].played++; stats[m.t2].played++;
       stats[m.t1].goalsFor += m.score1; stats[m.t1].goalsAgainst += m.score2;
       stats[m.t2].goalsFor += m.score2; stats[m.t2].goalsAgainst += m.score1;
-      if (m.score1 > m.score2) stats[m.t1].wins++;
-      else if (m.score2 > m.score1) stats[m.t2].wins++;
+      if (m.score1 > m.score2) { stats[m.t1].wins++; stats[m.t2].losses++; }
+      else if (m.score2 > m.score1) { stats[m.t2].wins++; stats[m.t1].losses++; }
+      else { stats[m.t1].draws++; stats[m.t2].draws++; }
     });
   });
 

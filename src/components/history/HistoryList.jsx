@@ -12,8 +12,10 @@ function aggregateStats(history) {
       // Firebase stores objects keyed by small-integer-like strings (e.g. a
       // player literally named "1") as sparse arrays, so entry 0 can be null.
       if (!s) return;
-      if (!allStats[player]) allStats[player] = { wins: 0, played: 0, tournaments: 0, trophies: 0, goalsFor: 0, goalsAgainst: 0 };
+      if (!allStats[player]) allStats[player] = { wins: 0, draws: 0, losses: 0, played: 0, tournaments: 0, trophies: 0, goalsFor: 0, goalsAgainst: 0 };
       allStats[player].wins += s.wins || 0;
+      allStats[player].draws += s.draws || 0;
+      allStats[player].losses += s.losses ?? (s.played || 0) - (s.wins || 0);
       allStats[player].played += s.played || 0;
       allStats[player].tournaments++;
       allStats[player].goalsFor += s.goalsFor || 0;
@@ -75,13 +77,12 @@ export default function HistoryList() {
         <table className="stats-table">
           <thead>
             <tr>
-              <th>Игрок</th><th>🏆</th><th>Игр</th><th>✅</th><th>❌</th><th>⚽</th><th>🚫</th><th>±</th>
+              <th>Игрок</th><th>🏆</th><th>Игр</th><th>✅</th><th>🤝</th><th>❌</th><th>⚽</th><th>🚫</th><th>±</th>
             </tr>
           </thead>
           <tbody>
             {sortedStats.map(([name, s], i) => {
               const isChamp = i === 0 && s.trophies > 0;
-              const losses = s.played - s.wins;
               const diff = s.goalsFor - s.goalsAgainst;
               return (
                 <tr key={name}>
@@ -89,7 +90,8 @@ export default function HistoryList() {
                   <td className="td-gold">{s.trophies}</td>
                   <td>{s.played}</td>
                   <td className="td-green">{s.wins}</td>
-                  <td className="td-red">{losses}</td>
+                  <td>{s.draws}</td>
+                  <td className="td-red">{s.losses}</td>
                   <td>{s.goalsFor}</td>
                   <td>{s.goalsAgainst}</td>
                   <td className={diff > 0 ? 'td-green' : diff < 0 ? 'td-red' : ''}>{diff > 0 ? '+' : ''}{diff}</td>
