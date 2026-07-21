@@ -121,7 +121,8 @@ export default function MatchCard({
     <div className={'group-match' + (isDone ? ' played' : ' active')}>
       <div className="gm-row">
         <div className={'gm-team' + (w1 ? ' gm-winner' : '')}>
-          {match.t1}{homeTag && match.home ? <span style={{ fontSize: '0.6rem', color: 'var(--text-dim)', marginLeft: 3 }}>🏠</span> : null}
+          <span className="gm-team-name">{match.t1}</span>
+          {homeTag && match.home ? <span className="gm-home-tag">🏠</span> : null}
         </div>
         {isDone ? (
           <div className="gm-result">{match.score1} : {match.score2}</div>
@@ -134,7 +135,7 @@ export default function MatchCard({
         ) : (
           <div className="gm-result">— : —</div>
         )}
-        <div className={'gm-team right' + (w2 ? ' gm-winner' : '')}>{match.t2}</div>
+        <div className={'gm-team right' + (w2 ? ' gm-winner' : '')}><span className="gm-team-name">{match.t2}</span></div>
         {isDone && editable && (
           <button className="gm-edit" title="Редактировать счёт" onClick={onEdit}>✏️</button>
         )}
