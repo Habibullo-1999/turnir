@@ -4,9 +4,13 @@ import MatchCard from './MatchCard.jsx';
 import GroupRearrange from './GroupRearrange.jsx';
 import { computeGroupTours, computeLeagueTours } from '../../utils/groups.js';
 import { hasGroupsStarted } from '../../utils/manualRearrange.js';
+import { getSportConfig } from '../../utils/sportConfig.js';
 
 export default function GroupStage({ tournament, editable, onConfirmMatch, onEditMatch, onAdvance, onMovePlayer }) {
+  const cfg = getSportConfig(tournament.sport);
+  const participantMeta = tournament.participantMeta || tournament.playerMeta;
   const isLeague = tournament.format === 'league';
+  const isDoubleLeague = isLeague && cfg.doubleRoundRobinLeague;
   const advanceCount = tournament.format === 'group+playoff'
     ? Math.min(2, Math.floor(tournament.groups[0].players.length / 2) + 1)
     : 0;
@@ -21,8 +25,10 @@ export default function GroupStage({ tournament, editable, onConfirmMatch, onEdi
           <div className="bracket-title">{tournament.name}</div>
           <div className="bracket-subtitle">
             {isLeague
-              ? `${tournament.players.length} участников · ${tournament.players.length * (tournament.players.length - 1)} матчей · каждый с каждым дважды`
-              : `${tournament.players.length} участников · ${tournament.groups.length} групп${tournament.format === 'group+playoff' ? ' → плей-офф' : ''}`}
+              ? isDoubleLeague
+                ? `${tournament.players.length} ${cfg.unitNoun} · ${tournament.players.length * (tournament.players.length - 1)} матчей · каждый с каждым дважды`
+                : `${tournament.players.length} ${cfg.unitNoun} · ${tournament.players.length * (tournament.players.length - 1) / 2} матчей · каждый с каждым`
+              : `${tournament.players.length} ${cfg.unitNoun} · ${tournament.groups.length} групп${tournament.format === 'group+playoff' ? ' → плей-офф' : ''}`}
           </div>
         </div>
         {showAdvance && editable && (
@@ -34,11 +40,11 @@ export default function GroupStage({ tournament, editable, onConfirmMatch, onEdi
 
       <div id="groups-container">
         {tournament.groups.map((group, gIdx) => {
-          const tours = isLeague ? computeLeagueTours(group) : computeGroupTours(group);
+          const tours = isDoubleLeague ? computeLeagueTours(group) : computeGroupTours(group);
           return (
             <div className="group-block" key={group.name + gIdx}>
               <div className="group-name">{isLeague ? '🏅 Лига' : group.name}</div>
-              <StandingsTable group={group} advanceCount={advanceCount} />
+              <StandingsTable group={group} advanceCount={advanceCount} sport={tournament.sport} participantMeta={participantMeta} />
               <div className="group-tours">
                 {tours.map((matchIndices, tIdx) => (
                   <div className="group-tour" key={tIdx}>
@@ -49,8 +55,10 @@ export default function GroupStage({ tournament, editable, onConfirmMatch, onEdi
                           key={mIdx}
                           variant="group"
                           match={group.matches[mIdx]}
+                          playerMeta={participantMeta}
+                          sport={tournament.sport}
                           editable={editable}
-                          homeTag={isLeague}
+                          homeTag={isDoubleLeague}
                           onConfirm={(s1, s2) => onConfirmMatch(gIdx, mIdx, s1, s2)}
                           onEdit={() => onEditMatch(gIdx, mIdx)}
                         />

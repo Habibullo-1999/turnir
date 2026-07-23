@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TournamentProvider, useTournament } from './context/TournamentContext.jsx';
 import Header from './components/Header.jsx';
 import LoadingOverlay from './components/LoadingOverlay.jsx';
+import SportSelectScreen from './components/home/SportSelectScreen.jsx';
 import TournamentSetupForm from './components/home/TournamentSetupForm.jsx';
 import ActiveTournamentsList from './components/home/ActiveTournamentsList.jsx';
 import TournamentPage from './components/tournament/TournamentPage.jsx';
@@ -13,6 +14,7 @@ const noop = () => {};
 
 function MainApp() {
   const [page, setPage] = useState('turnir');
+  const [selectedSport, setSelectedSport] = useState(null);
   const { tournament, opening, openError } = useTournament();
 
   return (
@@ -25,10 +27,19 @@ function MainApp() {
             {openError && <div className="card" style={{ color: 'var(--red)' }}>⚠️ {openError}</div>}
             {tournament ? (
               <TournamentPage onHome={() => setPage('turnir')} />
+            ) : !selectedSport ? (
+              <SportSelectScreen onSelect={setSelectedSport} />
             ) : (
               <>
-                <TournamentSetupForm onCreated={noop} />
-                <ActiveTournamentsList onOpen={noop} />
+                <button
+                  className="pause-btn"
+                  style={{ marginBottom: 14 }}
+                  onClick={() => setSelectedSport(null)}
+                >
+                  ← Сменить вид спорта
+                </button>
+                <TournamentSetupForm sport={selectedSport} onCreated={noop} />
+                <ActiveTournamentsList sport={selectedSport} onOpen={noop} />
               </>
             )}
           </>

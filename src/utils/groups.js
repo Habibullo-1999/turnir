@@ -25,12 +25,23 @@ export function buildGroups(players) {
   return groups;
 }
 
-export function buildLeague(players) {
+// double=true: каждая пара встречается дважды (дома/выезд), как в футбольном
+// сезоне. double=false: однокруговая лига — каждая пара встречается один раз,
+// без разделения на дом/выезд (принято для тенниса).
+export function buildLeague(players, { double = true } = {}) {
   const ps = shuffle(players);
   const matches = [];
-  for (let i = 0; i < ps.length; i++) {
-    for (let j = 0; j < ps.length; j++) {
-      if (i !== j) matches.push({ t1: ps[i], t2: ps[j], score1: null, score2: null, played: false, home: true });
+  if (double) {
+    for (let i = 0; i < ps.length; i++) {
+      for (let j = 0; j < ps.length; j++) {
+        if (i !== j) matches.push({ t1: ps[i], t2: ps[j], score1: null, score2: null, played: false, home: true });
+      }
+    }
+  } else {
+    for (let i = 0; i < ps.length; i++) {
+      for (let j = i + 1; j < ps.length; j++) {
+        matches.push({ t1: ps[i], t2: ps[j], score1: null, score2: null, played: false });
+      }
     }
   }
   return [{ name: 'Лига', players: ps, matches }];

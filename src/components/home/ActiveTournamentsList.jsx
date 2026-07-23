@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { listActive } from '../../services/tournaments.js';
 import { useTournament } from '../../context/TournamentContext.jsx';
+import { getSportConfig, FOOTBALL } from '../../utils/sportConfig.js';
 
 const FORMAT_LABEL = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы + Плей-офф', league: '🏅 Лига' };
 
-export default function ActiveTournamentsList({ onOpen }) {
+export default function ActiveTournamentsList({ sport, onOpen }) {
   const { openTournament } = useTournament();
   const [tournaments, setTournaments] = useState([]);
   const [error, setError] = useState(null);
@@ -14,10 +15,10 @@ export default function ActiveTournamentsList({ onOpen }) {
     setLoading(true);
     setError(null);
     listActive()
-      .then(setTournaments)
+      .then(list => setTournaments(list.filter(t => (t.sport || FOOTBALL) === sport)))
       .catch(err => setError(`Не удалось загрузить список турниров: ${err.message}`))
       .finally(() => setLoading(false));
-  }, []);
+  }, [sport]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -51,7 +52,7 @@ export default function ActiveTournamentsList({ onOpen }) {
             <div className="save-item-info">
               <div className="save-item-name">{t.name || 'Без названия'}</div>
               <div className="save-item-meta">
-                {FORMAT_LABEL[t.format] || t.format || ''} · {(t.players || []).length} участников
+                {t.sport === 'turnik' ? `🔝 Раунд ${t.round || 1}` : (FORMAT_LABEL[t.format] || t.format || '')} · {(t.players || []).length} {getSportConfig(t.sport).unitNoun}
               </div>
             </div>
             <button className="pause-btn" onClick={() => handleContinue(t)}>▶ Продолжить</button>

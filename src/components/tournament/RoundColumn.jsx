@@ -1,7 +1,7 @@
 import React from 'react';
 import MatchCard from './MatchCard.jsx';
 
-export default function RoundColumn({ round, roundIdx, label, playerMeta, editable, onConfirm, onNeedPenalty, onEdit }) {
+export default function RoundColumn({ round, roundIdx, label, playerMeta, sport, editable, onConfirm, onNeedPenalty, onEdit }) {
   const spacerH = Math.pow(2, roundIdx) * 10;
   return (
     <div className="round-col">
@@ -15,6 +15,7 @@ export default function RoundColumn({ round, roundIdx, label, playerMeta, editab
                 variant="bracket"
                 match={match}
                 playerMeta={playerMeta}
+                sport={sport}
                 editable={editable}
                 onConfirm={(s1, s2) => onConfirm(roundIdx, mIdx, s1, s2)}
                 onNeedPenalty={(s1, s2) => onNeedPenalty(roundIdx, mIdx, s1, s2)}
