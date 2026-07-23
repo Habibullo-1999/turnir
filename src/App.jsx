@@ -15,11 +15,17 @@ const noop = () => {};
 function MainApp() {
   const [page, setPage] = useState('turnir');
   const [selectedSport, setSelectedSport] = useState(null);
-  const { tournament, opening, openError } = useTournament();
+  const { tournament, opening, openError, closeTournament } = useTournament();
+
+  function goHome() {
+    closeTournament();
+    setSelectedSport(null);
+    setPage('turnir');
+  }
 
   return (
     <>
-      <Header page={page} onChangePage={setPage} />
+      <Header page={page} onChangePage={setPage} onHome={goHome} />
       <div className="container">
         {page === 'turnir' && (
           <>
