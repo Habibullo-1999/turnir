@@ -40,13 +40,6 @@ export default function MatchCard({
   const [error, setError] = useState(null);
   const cfg = getSportConfig(sport);
 
-  function displayName(name) {
-    if (!name) return name;
-    const meta = playerMeta && playerMeta[name];
-    if (cfg.isDoubles && meta && meta.members) return meta.members.join(' / ');
-    return name;
-  }
-
   const isBracket = variant === 'bracket';
   const isDone = isBracket ? Boolean(match.winner) : Boolean(match.played);
   const isByeMatch = isBracket && (match.t1 === 'BYE' || match.t2 === 'BYE');
@@ -93,7 +86,7 @@ export default function MatchCard({
               className={'match-team' + (isWinner ? ' winner' : '') + (isLoser ? ' loser' : '') + (isBye ? ' bye-slot' : '') + (isLucky && !isDone ? ' lucky' : '')}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
-                <span className="team-name" style={{ display: 'block' }}>{displayName(name) || '—'}</span>
+                <span className="team-name" style={{ display: 'block' }}>{name || '—'}</span>
                 {!isBye && cfg.hasClub && <ClubBadge meta={playerMeta && playerMeta[name]} />}
               </div>
               {isLucky && !isDone && <span className="lucky-badge">🍀 LL</span>}
@@ -138,7 +131,7 @@ export default function MatchCard({
     <div className={'group-match' + (isDone ? ' played' : ' active')}>
       <div className="gm-row">
         <div className={'gm-team' + (w1 ? ' gm-winner' : '')}>
-          <span className="gm-team-name">{displayName(match.t1)}</span>
+          <span className="gm-team-name">{match.t1}</span>
           {homeTag && match.home ? <span className="gm-home-tag">🏠</span> : null}
         </div>
         {isDone ? (
@@ -152,7 +145,7 @@ export default function MatchCard({
         ) : (
           <div className="gm-result">— : —</div>
         )}
-        <div className={'gm-team right' + (w2 ? ' gm-winner' : '')}><span className="gm-team-name">{displayName(match.t2)}</span></div>
+        <div className={'gm-team right' + (w2 ? ' gm-winner' : '')}><span className="gm-team-name">{match.t2}</span></div>
         {isDone && editable && (
           <button className="gm-edit" title="Редактировать счёт" onClick={onEdit}>✏️</button>
         )}

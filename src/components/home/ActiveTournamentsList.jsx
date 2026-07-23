@@ -52,7 +52,13 @@ export default function ActiveTournamentsList({ sport, onOpen }) {
             <div className="save-item-info">
               <div className="save-item-name">{t.name || 'Без названия'}</div>
               <div className="save-item-meta">
-                {t.sport === 'turnik' ? `🔝 Раунд ${t.round || 1}` : (FORMAT_LABEL[t.format] || t.format || '')} · {(t.players || []).length} {getSportConfig(t.sport).unitNoun}
+                {(() => {
+                  const tCfg = getSportConfig(t.sport);
+                  const label = tCfg.engine === 'turnik-ladder' ? `🔝 Раунд ${t.round || 1}`
+                    : tCfg.engine === 'americano' ? `${tCfg.icon} Американо`
+                    : (FORMAT_LABEL[t.format] || t.format || '');
+                  return `${label} · ${(t.players || []).length} ${tCfg.unitNoun}`;
+                })()}
               </div>
             </div>
             <button className="pause-btn" onClick={() => handleContinue(t)}>▶ Продолжить</button>

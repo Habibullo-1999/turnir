@@ -2,12 +2,13 @@ import React from 'react';
 import StandingsTable from '../tournament/StandingsTable.jsx';
 import MatchCard from '../tournament/MatchCard.jsx';
 import TurnikLadder from '../tournament/TurnikLadder.jsx';
+import AmericanoBoard from '../tournament/AmericanoBoard.jsx';
 import { computeGroupTours, computeLeagueTours } from '../../utils/groups.js';
-import { getSportConfig, displayParticipantName } from '../../utils/sportConfig.js';
+import { getSportConfig } from '../../utils/sportConfig.js';
 
 export default function HistoryModal({ entry, onClose }) {
   const cfg = getSportConfig(entry.sport);
-  const isTurnik = cfg.engine === 'turnik-ladder';
+  const isBracketGroup = cfg.engine === 'bracket-group';
   const participantMeta = entry.participantMeta || entry.playerMeta;
   const groups = entry.groups || [];
   const rounds = entry.rounds || [];
@@ -19,21 +20,22 @@ export default function HistoryModal({ entry, onClose }) {
         <div className="history-modal-header">
           <div>
             <div className="history-modal-title">{entry.name || 'Турнир'}</div>
-            <div className="history-modal-subtitle">{entry.date} · {(entry.players || []).length} {cfg.unitNoun} · 🏆 {entry.winner ? displayParticipantName(entry, entry.winner) : '—'}</div>
+            <div className="history-modal-subtitle">{entry.date} · {(entry.players || []).length} {cfg.unitNoun} · 🏆 {entry.winner || '—'}</div>
           </div>
           <button className="btn btn-secondary" onClick={onClose}>✕ Закрыть</button>
         </div>
 
-        {isTurnik && <TurnikLadder tournament={entry} editable={false} />}
+        {cfg.engine === 'turnik-ladder' && <TurnikLadder tournament={entry} editable={false} />}
+        {cfg.engine === 'americano' && <AmericanoBoard tournament={entry} editable={false} />}
 
-        {!isTurnik && groups.length > 0 && (
+        {isBracketGroup && groups.length > 0 && (
           <div className="history-modal-groups">
             {groups.map((group, gIdx) => {
               const tours = isLeague ? computeLeagueTours(group) : computeGroupTours(group);
               return (
                 <div className="group-block" key={gIdx}>
                   <div className="group-name">{isLeague ? '🏅 Лига' : group.name}</div>
-                  <StandingsTable group={group} sport={entry.sport} participantMeta={participantMeta} />
+                  <StandingsTable group={group} sport={entry.sport} />
                   <div className="group-tours">
                     {tours.map((matchIndices, tIdx) => (
                       <div className="group-tour" key={tIdx}>
@@ -52,7 +54,7 @@ export default function HistoryModal({ entry, onClose }) {
           </div>
         )}
 
-        {!isTurnik && rounds.length > 0 && (
+        {isBracketGroup && rounds.length > 0 && (
           <>
             {groups.length > 0 && <div className="history-modal-section-label">🏆 Плей-офф</div>}
             <div className="bracket-scroll">

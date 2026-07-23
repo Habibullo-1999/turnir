@@ -3,6 +3,7 @@ import GroupStage from '../tournament/GroupStage.jsx';
 import Bracket from '../tournament/Bracket.jsx';
 import WinnerBanner from '../tournament/WinnerBanner.jsx';
 import TurnikLadder from '../tournament/TurnikLadder.jsx';
+import AmericanoBoard from '../tournament/AmericanoBoard.jsx';
 import { getTournament } from '../../services/tournaments.js';
 import { getSportConfig } from '../../utils/sportConfig.js';
 
@@ -43,6 +44,8 @@ export default function ViewOnlyPage({ id }) {
 
   const cfg = getSportConfig(tournament.sport);
   const isTurnik = cfg.engine === 'turnik-ladder';
+  const isAmericano = cfg.engine === 'americano';
+  const isBracketGroup = cfg.engine === 'bracket-group';
   const isGroupFormat = tournament.format === 'group' || tournament.format === 'group+playoff' || tournament.format === 'league';
 
   return (
@@ -55,7 +58,7 @@ export default function ViewOnlyPage({ id }) {
         <div className="vo-hero">
           <div className="vo-hero-name">{tournament.name || 'Турнир'}</div>
           <div className="vo-hero-sub">
-            {isTurnik ? `${cfg.icon} Турник` : (FORMAT_LABEL[tournament.format] || '')} · {(tournament.players || []).length} {cfg.unitNoun}
+            {isTurnik ? `${cfg.icon} Турник` : isAmericano ? `${cfg.icon} Американо` : (FORMAT_LABEL[tournament.format] || '')} · {(tournament.players || []).length} {cfg.unitNoun}
           </div>
           <div className="vo-refresh">
             <span>Обновление через <span>{countdown}</span> сек</span>
@@ -63,9 +66,9 @@ export default function ViewOnlyPage({ id }) {
           </div>
         </div>
 
-        {isTurnik ? (
-          <TurnikLadder tournament={tournament} editable={false} />
-        ) : (
+        {isTurnik && <TurnikLadder tournament={tournament} editable={false} />}
+        {isAmericano && <AmericanoBoard tournament={tournament} editable={false} />}
+        {isBracketGroup && (
           <>
             {isGroupFormat && tournament.groups?.length > 0 && (
               <GroupStage tournament={tournament} editable={false} onConfirmMatch={noop} onEditMatch={noop} onAdvance={noop} />

@@ -1,14 +1,9 @@
 import { nextPow2, shuffle, buildRounds, propagateWinners } from './bracket.js';
 import { buildGroups, buildLeague } from './groups.js';
+import { buildAmericanoRounds } from './americano.js';
 import { getSportConfig, FOOTBALL, TURNIK } from './sportConfig.js';
 
-function buildDoublesTeamId(a, b) {
-  return [a.trim(), b.trim()].sort((x, y) => x.localeCompare(y, 'ru')).join(' & ');
-}
-
-// participants shape depends on sport:
-//  - одиночки (football / table-tennis-1x1): [{ name, club: {club,league,flag,icon} | null }]
-//  - пары (table-tennis-2x2): [{ nameA, nameB }]
+// participants: [{ name: string, club: {club,league,flag,icon} | null }]
 export function buildTournamentPayload({ name, participants, format, sport = FOOTBALL }) {
   const cfg = getSportConfig(sport);
 
@@ -27,34 +22,29 @@ export function buildTournamentPayload({ name, participants, format, sport = FOO
     };
   }
 
-  let names;
-  const participantMeta = {};
-
-  if (cfg.isDoubles) {
-    const seen = new Set();
-    names = participants.map(p => {
-      const a = (p.nameA || '').trim();
-      const b = (p.nameB || '').trim();
-      if (!a || !b) return null;
-      const id = buildDoublesTeamId(a, b);
-      if (seen.has(id)) throw new Error(`Команда «${a} и ${b}» уже добавлена дважды.`);
-      seen.add(id);
-      participantMeta[id] = { members: [a, b] };
-      return id;
-    }).filter(Boolean);
-    if (names.length < 2) {
-      throw new Error('Введите минимум 2 команды.');
+  if (cfg.engine === 'americano') {
+    const names = participants.map(p => p.name.trim()).filter(Boolean);
+    if (names.length < 3) {
+      throw new Error('Введите минимум 3 участника.');
     }
-  } else {
-    names = participants.map(p => p.name.trim()).filter(Boolean);
-    if (names.length < 2) {
-      throw new Error('Введите минимум 2 участника.');
-    }
-    participants.forEach(p => {
-      const trimmed = p.name.trim();
-      if (trimmed && p.club && cfg.hasClub) participantMeta[trimmed] = p.club;
-    });
+    return {
+      name: name.trim() || 'Турнир',
+      sport,
+      players: names,
+      rounds: buildAmericanoRounds(names),
+    };
   }
+
+  const names = participants.map(p => p.name.trim()).filter(Boolean);
+  if (names.length < 2) {
+    throw new Error('Введите минимум 2 участника.');
+  }
+
+  const participantMeta = {};
+  participants.forEach(p => {
+    const trimmed = p.name.trim();
+    if (trimmed && p.club && cfg.hasClub) participantMeta[trimmed] = p.club;
+  });
 
   const base = { name: name.trim() || 'Турнир', players: names, participantMeta, format, sport };
 

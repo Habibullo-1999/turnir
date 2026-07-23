@@ -9,7 +9,6 @@ export const SPORT_CONFIG = {
     label: 'Футбол',
     icon: '⚽',
     engine: 'bracket-group',
-    isDoubles: false,
     hasClub: true,
     hasPenalty: true,
     hasDraws: true,
@@ -23,7 +22,6 @@ export const SPORT_CONFIG = {
     label: 'Наст. теннис 1×1',
     icon: '🏓',
     engine: 'bracket-group',
-    isDoubles: false,
     hasClub: false,
     hasPenalty: false,
     hasDraws: false,
@@ -36,22 +34,18 @@ export const SPORT_CONFIG = {
     sport: TT_DOUBLES,
     label: 'Наст. теннис 2×2',
     icon: '🏓👥',
-    engine: 'bracket-group',
-    isDoubles: true,
+    engine: 'americano',
     hasClub: false,
     hasPenalty: false,
     hasDraws: false,
-    unitNoun: 'команд',
-    diffLabel: 'Сеты',
-    diffGenitive: 'сетов',
-    doubleRoundRobinLeague: false,
+    unitNoun: 'участников',
+    diffLabel: 'Очки',
   },
   [TURNIK]: {
     sport: TURNIK,
     label: 'Турник',
     icon: '🔝',
     engine: 'turnik-ladder',
-    isDoubles: false,
     hasClub: false,
     hasPenalty: false,
     hasDraws: false,
@@ -62,14 +56,4 @@ export const SPORT_CONFIG = {
 // Старые турниры без поля `sport` (созданы до этой фичи) читаются как футбол.
 export function getSportConfig(sport) {
   return SPORT_CONFIG[sport] || SPORT_CONFIG[FOOTBALL];
-}
-
-// Для пар 2×2 `name` — это техническый составной ID команды («Иван & Петр»),
-// не то, что должно показываться пользователю — резолвим через participantMeta.
-export function displayParticipantName(tournament, name) {
-  if (!name) return name;
-  const cfg = getSportConfig(tournament.sport);
-  const meta = (tournament.participantMeta || tournament.playerMeta || {})[name];
-  if (cfg.isDoubles && meta && meta.members) return meta.members.join(' / ');
-  return name;
 }

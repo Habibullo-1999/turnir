@@ -2,21 +2,15 @@ import React from 'react';
 import { calcStandings } from '../../utils/groups.js';
 import { getSportConfig } from '../../utils/sportConfig.js';
 
-export default function StandingsTable({ group, advanceCount = 0, sport, participantMeta }) {
+export default function StandingsTable({ group, advanceCount = 0, sport }) {
   const cfg = getSportConfig(sport);
   const standings = calcStandings(group);
-
-  function displayName(name) {
-    const meta = participantMeta && participantMeta[name];
-    if (cfg.isDoubles && meta && meta.members) return meta.members.join(' / ');
-    return name;
-  }
 
   return (
     <table className="standings-table">
       <thead>
         <tr>
-          <th style={{ width: '40%' }}>{cfg.isDoubles ? 'Команда' : 'Игрок'}</th>
+          <th style={{ width: '40%' }}>Игрок</th>
           <th title="Матчи">М</th><th title="Победы">В</th>
           {cfg.hasDraws && <th title="Ничьи">Н</th>}
           <th title="Поражения">П</th><th title={cfg.diffLabel}>{cfg.diffLabel[0]}</th><th title="Разница">±</th>
@@ -32,7 +26,7 @@ export default function StandingsTable({ group, advanceCount = 0, sport, partici
               <td>
                 <span className="pos">{i + 1}.</span>
                 {advancing && <span className="advance-marker" />}
-                {displayName(row.name)}
+                {row.name}
               </td>
               <td>{row.played}</td><td>{row.w}</td>
               {cfg.hasDraws && <td>{row.d}</td>}

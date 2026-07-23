@@ -5,6 +5,7 @@ import WinnerBanner from './WinnerBanner.jsx';
 import ShareCard from './ShareCard.jsx';
 import PenaltyModal from './PenaltyModal.jsx';
 import TurnikLadder from './TurnikLadder.jsx';
+import AmericanoBoard from './AmericanoBoard.jsx';
 import SaveIndicator from '../SaveIndicator.jsx';
 import { useTournament } from '../../context/TournamentContext.jsx';
 import {
@@ -13,6 +14,7 @@ import {
 } from '../../utils/matchActions.js';
 import { swapBracketSlots, movePlayerToGroup } from '../../utils/manualRearrange.js';
 import { markPassed, markFailed, undoMark, advanceRound } from '../../utils/ladderActions.js';
+import { confirmAmericanoScore, clearAmericanoScore } from '../../utils/americanoActions.js';
 import { getSportConfig } from '../../utils/sportConfig.js';
 
 export default function TournamentPage({ onHome }) {
@@ -35,6 +37,8 @@ export default function TournamentPage({ onHome }) {
   const editable = tournament.status === 'active';
   const cfg = getSportConfig(tournament.sport);
   const isTurnik = cfg.engine === 'turnik-ladder';
+  const isAmericano = cfg.engine === 'americano';
+  const isBracketGroup = cfg.engine === 'bracket-group';
   const isGroupFormat = tournament.format === 'group' || tournament.format === 'group+playoff' || tournament.format === 'league';
 
   function handleGroupConfirm(gIdx, mIdx, s1, s2) {
@@ -89,6 +93,12 @@ export default function TournamentPage({ onHome }) {
       setAdvanceError(err.message);
     }
   }
+  function handleAmericanoConfirm(rIdx, mIdx, s1, s2) {
+    mutate(draft => confirmAmericanoScore(draft, rIdx, mIdx, s1, s2));
+  }
+  function handleAmericanoEdit(rIdx, mIdx) {
+    mutate(draft => clearAmericanoScore(draft, rIdx, mIdx));
+  }
   function handleReopen() {
     setJustFinished(false);
     mutate(draft => reopenTournament(draft));
@@ -112,7 +122,7 @@ export default function TournamentPage({ onHome }) {
         </div>
       )}
 
-      {isTurnik ? (
+      {isTurnik && (
         <TurnikLadder
           tournament={tournament}
           editable={editable}
@@ -121,7 +131,18 @@ export default function TournamentPage({ onHome }) {
           onUndo={handleLadderUndo}
           onAdvance={handleLadderAdvance}
         />
-      ) : (
+      )}
+
+      {isAmericano && (
+        <AmericanoBoard
+          tournament={tournament}
+          editable={editable}
+          onConfirm={handleAmericanoConfirm}
+          onEdit={handleAmericanoEdit}
+        />
+      )}
+
+      {isBracketGroup && (
         <>
           {isGroupFormat && (
             <GroupStage
@@ -154,7 +175,7 @@ export default function TournamentPage({ onHome }) {
 
       {tournament.status === 'active' && <ShareCard tournamentId={tournament.id} />}
 
-      {!isTurnik && <PenaltyModal ctx={penaltyCtx} onConfirm={handleConfirmPenalty} onClose={() => setPenaltyCtx(null)} />}
+      {isBracketGroup && <PenaltyModal ctx={penaltyCtx} onConfirm={handleConfirmPenalty} onClose={() => setPenaltyCtx(null)} />}
     </div>
   );
 }

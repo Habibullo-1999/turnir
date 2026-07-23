@@ -44,7 +44,7 @@ export default function GroupStage({ tournament, editable, onConfirmMatch, onEdi
           return (
             <div className="group-block" key={group.name + gIdx}>
               <div className="group-name">{isLeague ? '🏅 Лига' : group.name}</div>
-              <StandingsTable group={group} advanceCount={advanceCount} sport={tournament.sport} participantMeta={participantMeta} />
+              <StandingsTable group={group} advanceCount={advanceCount} sport={tournament.sport} />
               <div className="group-tours">
                 {tours.map((matchIndices, tIdx) => (
                   <div className="group-tour" key={tIdx}>

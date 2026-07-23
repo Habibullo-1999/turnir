@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import ParticipantRow from './ParticipantRow.jsx';
-import DoublesTeamRow from './DoublesTeamRow.jsx';
 import FormatPicker from './FormatPicker.jsx';
 import { useKnownPlayers } from '../../hooks/useKnownPlayers.js';
 import { buildTournamentPayload } from '../../utils/createTournamentPayload.js';
@@ -13,16 +12,12 @@ function newRow(name = '', club = null) {
   rowIdCounter += 1;
   return { id: rowIdCounter, name, club };
 }
-function newDoublesRow(nameA = '', nameB = '') {
-  rowIdCounter += 1;
-  return { id: rowIdCounter, nameA, nameB };
-}
 
 export default function TournamentSetupForm({ sport, onCreated }) {
   const cfg = getSportConfig(sport);
   const { startTournament } = useTournament();
   const [name, setName] = useState('');
-  const [rows, setRows] = useState(() => (cfg.isDoubles ? [newDoublesRow(), newDoublesRow()] : [newRow(), newRow()]));
+  const [rows, setRows] = useState(() => [newRow(), newRow()]);
   const [format, setFormat] = useState('playoff');
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
@@ -32,20 +27,19 @@ export default function TournamentSetupForm({ sport, onCreated }) {
     listHistory().then(setHistory).catch(() => setHistory([]));
   }, []);
 
-  // Состав строк формы зависит от вида спорта — при смене вида начинаем заново.
   useEffect(() => {
-    setRows(cfg.isDoubles ? [newDoublesRow(), newDoublesRow()] : [newRow(), newRow()]);
+    setRows([newRow(), newRow()]);
   }, [sport]);
 
   const knownPlayers = useKnownPlayers(history, sport);
-  const existingNames = rows.map(r => (cfg.isDoubles ? `${r.nameA} ${r.nameB}` : r.name).trim()).filter(Boolean);
+  const existingNames = rows.map(r => r.name.trim()).filter(Boolean);
 
   function updateRow(id, patch) {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
   }
 
-  function addRow(nameOrA = '', clubOrB = null) {
-    setRows(prev => [...prev, cfg.isDoubles ? newDoublesRow(nameOrA, clubOrB) : newRow(nameOrA, clubOrB)]);
+  function addRow(name = '', club = null) {
+    setRows(prev => [...prev, newRow(name, club)]);
   }
 
   function removeRow(id) {
@@ -53,7 +47,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
   }
 
   function addKnownPlayer(playerName, club) {
-    if (rows.some(r => r.name === playerName)) return;
+    if (existingNames.includes(playerName)) return;
     addRow(playerName, club);
   }
 
@@ -61,10 +55,12 @@ export default function TournamentSetupForm({ sport, onCreated }) {
     setError(null);
     setCreating(true);
     try {
-      const participants = cfg.isDoubles
-        ? rows.map(r => ({ nameA: r.nameA, nameB: r.nameB }))
-        : rows.map(r => ({ name: r.name, club: r.club }));
-      const payload = buildTournamentPayload({ name, participants, format, sport });
+      const payload = buildTournamentPayload({
+        name,
+        participants: rows.map(r => ({ name: r.name, club: r.club })),
+        format,
+        sport,
+      });
       await startTournament(payload);
       onCreated();
     } catch (err) {
@@ -88,26 +84,15 @@ export default function TournamentSetupForm({ sport, onCreated }) {
       <div style={{ marginTop: 14 }}>
         <div id="participants-rows">
           {rows.map(r => (
-            cfg.isDoubles ? (
-              <DoublesTeamRow
-                key={r.id}
-                nameA={r.nameA}
-                nameB={r.nameB}
-                onNameAChange={val => updateRow(r.id, { nameA: val })}
-                onNameBChange={val => updateRow(r.id, { nameB: val })}
-                onRemove={() => removeRow(r.id)}
-              />
-            ) : (
-              <ParticipantRow
-                key={r.id}
-                name={r.name}
-                club={r.club}
-                showClub={cfg.hasClub}
-                onNameChange={val => updateRow(r.id, { name: val })}
-                onClubChange={club => updateRow(r.id, { club })}
-                onRemove={() => removeRow(r.id)}
-              />
-            )
+            <ParticipantRow
+              key={r.id}
+              name={r.name}
+              club={r.club}
+              showClub={cfg.hasClub}
+              onNameChange={val => updateRow(r.id, { name: val })}
+              onClubChange={club => updateRow(r.id, { club })}
+              onRemove={() => removeRow(r.id)}
+            />
           ))}
         </div>
         <button
@@ -115,12 +100,12 @@ export default function TournamentSetupForm({ sport, onCreated }) {
           onClick={() => addRow()}
           style={{ marginTop: 8, background: 'rgba(34,197,94,0.08)', color: 'var(--green)', border: '1px dashed rgba(34,197,94,0.3)', width: '100%', padding: 10, fontSize: '0.85rem', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit' }}
         >
-          + Добавить {cfg.isDoubles ? 'команду' : 'участника'}
+          + Добавить участника
         </button>
         <div className="field-hint" style={{ marginTop: 6 }}>
-          {cfg.engine === 'bracket-group'
-            ? `Минимум 2 ${cfg.unitNoun}. Лучший проигравший займёт место BYE.`
-            : `Минимум 2 ${cfg.unitNoun}.`}
+          {cfg.engine === 'bracket-group' && `Минимум 2 ${cfg.unitNoun}. Лучший проигравший займёт место BYE.`}
+          {cfg.engine === 'turnik-ladder' && `Минимум 2 ${cfg.unitNoun}.`}
+          {cfg.engine === 'americano' && 'Минимум 3 участника. Команды формируются автоматически и меняются каждый раунд.'}
         </div>
       </div>
 
