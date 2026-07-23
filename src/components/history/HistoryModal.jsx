@@ -1,9 +1,14 @@
 import React from 'react';
 import StandingsTable from '../tournament/StandingsTable.jsx';
 import MatchCard from '../tournament/MatchCard.jsx';
+import TurnikLadder from '../tournament/TurnikLadder.jsx';
 import { computeGroupTours, computeLeagueTours } from '../../utils/groups.js';
+import { getSportConfig, displayParticipantName } from '../../utils/sportConfig.js';
 
 export default function HistoryModal({ entry, onClose }) {
+  const cfg = getSportConfig(entry.sport);
+  const isTurnik = cfg.engine === 'turnik-ladder';
+  const participantMeta = entry.participantMeta || entry.playerMeta;
   const groups = entry.groups || [];
   const rounds = entry.rounds || [];
   const isLeague = entry.format === 'league';
@@ -14,26 +19,28 @@ export default function HistoryModal({ entry, onClose }) {
         <div className="history-modal-header">
           <div>
             <div className="history-modal-title">{entry.name || 'Турнир'}</div>
-            <div className="history-modal-subtitle">{entry.date} · {(entry.players || []).length} участников · 🏆 {entry.winner || '—'}</div>
+            <div className="history-modal-subtitle">{entry.date} · {(entry.players || []).length} {cfg.unitNoun} · 🏆 {entry.winner ? displayParticipantName(entry, entry.winner) : '—'}</div>
           </div>
           <button className="btn btn-secondary" onClick={onClose}>✕ Закрыть</button>
         </div>
 
-        {groups.length > 0 && (
+        {isTurnik && <TurnikLadder tournament={entry} editable={false} />}
+
+        {!isTurnik && groups.length > 0 && (
           <div className="history-modal-groups">
             {groups.map((group, gIdx) => {
               const tours = isLeague ? computeLeagueTours(group) : computeGroupTours(group);
               return (
                 <div className="group-block" key={gIdx}>
                   <div className="group-name">{isLeague ? '🏅 Лига' : group.name}</div>
-                  <StandingsTable group={group} />
+                  <StandingsTable group={group} sport={entry.sport} participantMeta={participantMeta} />
                   <div className="group-tours">
                     {tours.map((matchIndices, tIdx) => (
                       <div className="group-tour" key={tIdx}>
                         <div className="group-tour-label">Тур {tIdx + 1}</div>
                         <div className="group-tour-matches">
                           {matchIndices.map(mIdx => (
-                            <MatchCard key={mIdx} variant="group" match={group.matches[mIdx]} editable={false} homeTag={isLeague} />
+                            <MatchCard key={mIdx} variant="group" match={group.matches[mIdx]} playerMeta={participantMeta} sport={entry.sport} editable={false} homeTag={isLeague} />
                           ))}
                         </div>
                       </div>
@@ -45,7 +52,7 @@ export default function HistoryModal({ entry, onClose }) {
           </div>
         )}
 
-        {rounds.length > 0 && (
+        {!isTurnik && rounds.length > 0 && (
           <>
             {groups.length > 0 && <div className="history-modal-section-label">🏆 Плей-офф</div>}
             <div className="bracket-scroll">
@@ -59,7 +66,7 @@ export default function HistoryModal({ entry, onClose }) {
                           <React.Fragment key={mIdx}>
                             {mIdx > 0 && <div style={{ height: Math.pow(2, rIdx) * 10 }} />}
                             <div className="match-wrapper">
-                              <MatchCard variant="bracket" match={match} playerMeta={entry.playerMeta} editable={false} />
+                              <MatchCard variant="bracket" match={match} playerMeta={participantMeta} sport={entry.sport} editable={false} />
                             </div>
                           </React.Fragment>
                         ))}

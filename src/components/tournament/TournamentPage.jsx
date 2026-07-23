@@ -4,6 +4,7 @@ import Bracket from './Bracket.jsx';
 import WinnerBanner from './WinnerBanner.jsx';
 import ShareCard from './ShareCard.jsx';
 import PenaltyModal from './PenaltyModal.jsx';
+import TurnikLadder from './TurnikLadder.jsx';
 import SaveIndicator from '../SaveIndicator.jsx';
 import { useTournament } from '../../context/TournamentContext.jsx';
 import {
@@ -11,6 +12,8 @@ import {
   confirmGroupScore, clearGroupMatch, advanceGroupsToPlayoff, reopenTournament,
 } from '../../utils/matchActions.js';
 import { swapBracketSlots, movePlayerToGroup } from '../../utils/manualRearrange.js';
+import { markPassed, markFailed, undoMark, advanceRound } from '../../utils/ladderActions.js';
+import { getSportConfig } from '../../utils/sportConfig.js';
 
 export default function TournamentPage({ onHome }) {
   const { tournament, mutate, closeTournament, saveStatus, saveError } = useTournament();
@@ -30,6 +33,8 @@ export default function TournamentPage({ onHome }) {
   if (!tournament) return null;
 
   const editable = tournament.status === 'active';
+  const cfg = getSportConfig(tournament.sport);
+  const isTurnik = cfg.engine === 'turnik-ladder';
   const isGroupFormat = tournament.format === 'group' || tournament.format === 'group+playoff' || tournament.format === 'league';
 
   function handleGroupConfirm(gIdx, mIdx, s1, s2) {
@@ -67,6 +72,23 @@ export default function TournamentPage({ onHome }) {
       setAdvanceError(err.message);
     }
   }
+  function handleLadderPass(name) {
+    mutate(draft => markPassed(draft, name));
+  }
+  function handleLadderFail(name) {
+    mutate(draft => markFailed(draft, name));
+  }
+  function handleLadderUndo(name) {
+    mutate(draft => undoMark(draft, name));
+  }
+  function handleLadderAdvance() {
+    setAdvanceError(null);
+    try {
+      mutate(draft => advanceRound(draft));
+    } catch (err) {
+      setAdvanceError(err.message);
+    }
+  }
   function handleReopen() {
     setJustFinished(false);
     mutate(draft => reopenTournament(draft));
@@ -90,28 +112,41 @@ export default function TournamentPage({ onHome }) {
         </div>
       )}
 
-      {isGroupFormat && (
-        <GroupStage
+      {isTurnik ? (
+        <TurnikLadder
           tournament={tournament}
           editable={editable}
-          onConfirmMatch={handleGroupConfirm}
-          onEditMatch={handleGroupEdit}
-          onAdvance={handleAdvance}
-          onMovePlayer={handleMovePlayer}
+          onPass={handleLadderPass}
+          onFail={handleLadderFail}
+          onUndo={handleLadderUndo}
+          onAdvance={handleLadderAdvance}
         />
+      ) : (
+        <>
+          {isGroupFormat && (
+            <GroupStage
+              tournament={tournament}
+              editable={editable}
+              onConfirmMatch={handleGroupConfirm}
+              onEditMatch={handleGroupEdit}
+              onAdvance={handleAdvance}
+              onMovePlayer={handleMovePlayer}
+            />
+          )}
+
+          {tournament.rounds && tournament.rounds.length > 0 && (
+            <Bracket
+              tournament={tournament}
+              editable={editable}
+              onConfirm={handleBracketConfirm}
+              onNeedPenalty={handleNeedPenalty}
+              onEdit={handleBracketEdit}
+              onSwap={handleSwap}
+            />
+          )}
+        </>
       )}
       {advanceError && <div style={{ color: 'var(--red)', margin: '8px 0' }}>⚠️ {advanceError}</div>}
-
-      {tournament.rounds && tournament.rounds.length > 0 && (
-        <Bracket
-          tournament={tournament}
-          editable={editable}
-          onConfirm={handleBracketConfirm}
-          onNeedPenalty={handleNeedPenalty}
-          onEdit={handleBracketEdit}
-          onSwap={handleSwap}
-        />
-      )}
 
       {tournament.status === 'finished' && tournament.winner && (
         <WinnerBanner tournament={tournament} celebrate={justFinished} onNewTournament={handleNewTournament} onReopen={handleReopen} />
@@ -119,7 +154,7 @@ export default function TournamentPage({ onHome }) {
 
       {tournament.status === 'active' && <ShareCard tournamentId={tournament.id} />}
 
-      <PenaltyModal ctx={penaltyCtx} onConfirm={handleConfirmPenalty} onClose={() => setPenaltyCtx(null)} />
+      {!isTurnik && <PenaltyModal ctx={penaltyCtx} onConfirm={handleConfirmPenalty} onClose={() => setPenaltyCtx(null)} />}
     </div>
   );
 }

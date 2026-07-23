@@ -1,6 +1,7 @@
 import React from 'react';
 import ConfettiEffect from './ConfettiEffect.jsx';
 import { downloadTournamentJson } from '../../utils/exportTournament.js';
+import { displayParticipantName } from '../../utils/sportConfig.js';
 
 export default function WinnerBanner({ tournament, celebrate, onNewTournament, onReopen, readOnly = false }) {
   function handleReopen() {
@@ -9,13 +10,15 @@ export default function WinnerBanner({ tournament, celebrate, onNewTournament, o
     }
   }
 
+  const winnerName = displayParticipantName(tournament, tournament.winner);
+
   return (
     <>
       {celebrate && <ConfettiEffect key={tournament.winner} />}
       <div className="card" id="winner-section">
         <span className="trophy">🏆</span>
         <div className="winner-label">Победитель турнира</div>
-        <div className="winner-name">{tournament.winner}</div>
+        <div className="winner-name">{winnerName}</div>
         <div className="winner-sub">🏆 Чемпион турнира «{tournament.name}»</div>
         <div style={{ marginTop: 24, display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <button className="btn btn-export" onClick={() => downloadTournamentJson(tournament)}>📤 Экспорт результатов</button>

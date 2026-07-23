@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { listHistory, reopenFinishedTournament } from '../../services/tournaments.js';
 import { computeTournamentResult } from '../../utils/computeStats.js';
+import { buildLadderRanking } from '../../utils/ladder.js';
+import { SPORT_CONFIG, getSportConfig, displayParticipantName, FOOTBALL, TURNIK } from '../../utils/sportConfig.js';
 import HistoryModal from './HistoryModal.jsx';
 
 const FORMAT_LABEL = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы+ПО', league: '🏅 Лига' };
@@ -37,12 +39,41 @@ function aggregateStats(history) {
   return Object.entries(allStats).sort((a, b) => b[1].trophies - a[1].trophies || b[1].wins - a[1].wins);
 }
 
+// Дублирующие ключи в `stats`/leaderboard — это составные team-ID пар 2×2,
+// а не то, что нужно показать пользователю. Резолвим через participantMeta
+// первого турнира из истории, где эта команда встречается.
+function resolveHistoryName(history, key) {
+  for (const entry of history) {
+    const name = displayParticipantName(entry, key);
+    if (name !== key) return name;
+  }
+  return key;
+}
+
+function aggregateLadderStats(history) {
+  const allStats = {};
+  history.forEach(entry => {
+    buildLadderRanking(entry).forEach(row => {
+      if (!allStats[row.name]) allStats[row.name] = { tournaments: 0, gold: 0, silver: 0, bronze: 0, bestRound: 0 };
+      const s = allStats[row.name];
+      s.tournaments++;
+      if (row.rank === 1) s.gold++;
+      else if (row.rank === 2) s.silver++;
+      else if (row.rank === 3) s.bronze++;
+      const survivedRounds = row.eliminatedRound != null ? row.eliminatedRound - 1 : (entry.round || 1);
+      if (survivedRounds > s.bestRound) s.bestRound = survivedRounds;
+    });
+  });
+  return Object.entries(allStats).sort((a, b) => b[1].gold - a[1].gold || b[1].bestRound - a[1].bestRound);
+}
+
 export default function HistoryList() {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [openEntry, setOpenEntry] = useState(null);
   const [page, setPage] = useState(1);
+  const [sportFilter, setSportFilter] = useState(FOOTBALL);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -54,7 +85,7 @@ export default function HistoryList() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [history.length]);
+  useEffect(() => { setPage(1); }, [history.length, sportFilter]);
 
   async function handleReopen(entry) {
     if (!confirm(`Вернуть турнир «${entry.name || 'Турнир'}» в игру и снять пометку "завершён"?`)) return;
@@ -75,8 +106,11 @@ export default function HistoryList() {
     return <div className="card" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Пока нет завершённых турниров.</div>;
   }
 
-  const sortedStats = aggregateStats(history);
-  const listDesc = history; // already sorted newest-first by listHistory()
+  const cfg = getSportConfig(sportFilter);
+  const isTurnik = cfg.engine === 'turnik-ladder';
+  const sportHistory = history.filter(entry => (entry.sport || FOOTBALL) === sportFilter);
+  const sortedStats = isTurnik ? aggregateLadderStats(sportHistory) : aggregateStats(sportHistory);
+  const listDesc = sportHistory; // already sorted newest-first by listHistory()
   const totalPages = Math.max(1, Math.ceil(listDesc.length / PAGE_SIZE));
   const pageItems = listDesc.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -84,59 +118,104 @@ export default function HistoryList() {
     <div className="card" id="history-section">
       <div className="card-title">История и статистика</div>
 
-      {sortedStats.length > 0 && (
-        <table className="stats-table">
-          <thead>
-            <tr>
-              <th>Игрок</th><th>🏆</th><th>Игр</th><th>✅</th><th>🤝</th><th>❌</th><th>⚽</th><th>🚫</th><th>±</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedStats.map(([name, s], i) => {
-              const isChamp = i === 0 && s.trophies > 0;
-              const diff = s.goalsFor - s.goalsAgainst;
-              return (
-                <tr key={name}>
-                  <td>{isChamp ? '👑 ' : ''}{name}</td>
-                  <td className="td-gold">{s.trophies}</td>
-                  <td>{s.played}</td>
-                  <td className="td-green">{s.wins}</td>
-                  <td>{s.draws}</td>
-                  <td className="td-red">{s.losses}</td>
-                  <td>{s.goalsFor}</td>
-                  <td>{s.goalsAgainst}</td>
-                  <td className={diff > 0 ? 'td-green' : diff < 0 ? 'td-red' : ''}>{diff > 0 ? '+' : ''}{diff}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-
-      <div className="history-list">
-        {pageItems.map(entry => (
-          <div className="history-item" key={entry.id}>
-            <div>
-              <div className="history-item-name">{entry.name || 'Турнир'}</div>
-              <div className="history-item-meta">
-                {entry.date} · {(entry.players || []).length} участников · {FORMAT_LABEL[entry.format] || '🏆 Плей-офф'}
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <div className="history-item-winner">{entry.winner ? '🏆 ' + entry.winner : '—'}</div>
-              <button className="btn btn-reset" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => setOpenEntry(entry)}>📊 Сетка</button>
-              <button className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => handleReopen(entry)}>↩️ Вернуть</button>
-            </div>
-          </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        {Object.values(SPORT_CONFIG).map(sc => (
+          <button
+            key={sc.sport}
+            type="button"
+            className={'format-btn' + (sportFilter === sc.sport ? ' active' : '')}
+            onClick={() => setSportFilter(sc.sport)}
+          >
+            {sc.icon} {sc.label}
+          </button>
         ))}
       </div>
 
-      {totalPages > 1 && (
-        <div className="history-pagination">
-          <button className="btn btn-reset" disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Назад</button>
-          <span>Страница {page} из {totalPages}</span>
-          <button className="btn btn-reset" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Вперёд →</button>
-        </div>
+      {!sportHistory.length ? (
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>Пока нет завершённых турниров этого вида спорта.</div>
+      ) : (
+        <>
+          {isTurnik ? (
+            sortedStats.length > 0 && (
+              <table className="stats-table">
+                <thead>
+                  <tr>
+                    <th>Игрок</th><th>Турниров</th><th>🥇</th><th>🥈</th><th>🥉</th><th>Лучший результат</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedStats.map(([name, s], i) => (
+                    <tr key={name}>
+                      <td>{i === 0 && s.gold > 0 ? '👑 ' : ''}{name}</td>
+                      <td>{s.tournaments}</td>
+                      <td className="td-gold">{s.gold}</td>
+                      <td>{s.silver}</td>
+                      <td>{s.bronze}</td>
+                      <td>{s.bestRound}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          ) : (
+            sortedStats.length > 0 && (
+              <table className="stats-table">
+                <thead>
+                  <tr>
+                    <th>Игрок</th><th>🏆</th><th>Игр</th><th>✅</th>
+                    {cfg.hasDraws && <th>🤝</th>}
+                    <th>❌</th><th>{cfg.diffLabel}</th><th>🚫</th><th>±</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedStats.map(([name, s], i) => {
+                    const isChamp = i === 0 && s.trophies > 0;
+                    const diff = s.goalsFor - s.goalsAgainst;
+                    return (
+                      <tr key={name}>
+                        <td>{isChamp ? '👑 ' : ''}{resolveHistoryName(sportHistory, name)}</td>
+                        <td className="td-gold">{s.trophies}</td>
+                        <td>{s.played}</td>
+                        <td className="td-green">{s.wins}</td>
+                        {cfg.hasDraws && <td>{s.draws}</td>}
+                        <td className="td-red">{s.losses}</td>
+                        <td>{s.goalsFor}</td>
+                        <td>{s.goalsAgainst}</td>
+                        <td className={diff > 0 ? 'td-green' : diff < 0 ? 'td-red' : ''}>{diff > 0 ? '+' : ''}{diff}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )
+          )}
+
+          <div className="history-list">
+            {pageItems.map(entry => (
+              <div className="history-item" key={entry.id}>
+                <div>
+                  <div className="history-item-name">{entry.name || 'Турнир'}</div>
+                  <div className="history-item-meta">
+                    {entry.date} · {(entry.players || []).length} {cfg.unitNoun} · {entry.sport === TURNIK ? `${cfg.icon} Турник` : (FORMAT_LABEL[entry.format] || '🏆 Плей-офф')}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <div className="history-item-winner">{entry.winner ? '🏆 ' + displayParticipantName(entry, entry.winner) : '—'}</div>
+                  <button className="btn btn-reset" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => setOpenEntry(entry)}>📊 Сетка</button>
+                  <button className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => handleReopen(entry)}>↩️ Вернуть</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="history-pagination">
+              <button className="btn btn-reset" disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Назад</button>
+              <span>Страница {page} из {totalPages}</span>
+              <button className="btn btn-reset" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Вперёд →</button>
+            </div>
+          )}
+        </>
       )}
 
       {openEntry && <HistoryModal entry={openEntry} onClose={() => setOpenEntry(null)} />}

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getSportConfig } from '../../utils/sportConfig.js';
 
 function parseScoreInput(raw) {
   if (raw === '' || raw === undefined) return 0;
@@ -27,6 +28,7 @@ export default function MatchCard({
   variant, // 'bracket' | 'group'
   match,
   playerMeta,
+  sport,
   editable,
   homeTag,
   onConfirm,
@@ -36,6 +38,14 @@ export default function MatchCard({
   const [s1, setS1] = useState('');
   const [s2, setS2] = useState('');
   const [error, setError] = useState(null);
+  const cfg = getSportConfig(sport);
+
+  function displayName(name) {
+    if (!name) return name;
+    const meta = playerMeta && playerMeta[name];
+    if (cfg.isDoubles && meta && meta.members) return meta.members.join(' / ');
+    return name;
+  }
 
   const isBracket = variant === 'bracket';
   const isDone = isBracket ? Boolean(match.winner) : Boolean(match.played);
@@ -51,11 +61,18 @@ export default function MatchCard({
     const p1 = parseScoreInput(s1);
     const p2 = parseScoreInput(s2);
     if (Number.isNaN(p1) || Number.isNaN(p2)) { setError('Введите корректный счёт.'); return; }
-    setError(null);
-    if (isBracket && p1 === p2) {
-      onNeedPenalty(p1, p2);
-      return;
+    if (p1 === p2) {
+      if (isBracket && cfg.hasPenalty) {
+        setError(null);
+        onNeedPenalty(p1, p2);
+        return;
+      }
+      if (!cfg.hasDraws) {
+        setError('Ничья невозможна — введите разные значения.');
+        return;
+      }
     }
+    setError(null);
     onConfirm(p1, p2);
   }
 
@@ -76,8 +93,8 @@ export default function MatchCard({
               className={'match-team' + (isWinner ? ' winner' : '') + (isLoser ? ' loser' : '') + (isBye ? ' bye-slot' : '') + (isLucky && !isDone ? ' lucky' : '')}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
-                <span className="team-name" style={{ display: 'block' }}>{name || '—'}</span>
-                {!isBye && <ClubBadge meta={playerMeta && playerMeta[name]} />}
+                <span className="team-name" style={{ display: 'block' }}>{displayName(name) || '—'}</span>
+                {!isBye && cfg.hasClub && <ClubBadge meta={playerMeta && playerMeta[name]} />}
               </div>
               {isLucky && !isDone && <span className="lucky-badge">🍀 LL</span>}
               {isDone ? (
@@ -121,7 +138,7 @@ export default function MatchCard({
     <div className={'group-match' + (isDone ? ' played' : ' active')}>
       <div className="gm-row">
         <div className={'gm-team' + (w1 ? ' gm-winner' : '')}>
-          <span className="gm-team-name">{match.t1}</span>
+          <span className="gm-team-name">{displayName(match.t1)}</span>
           {homeTag && match.home ? <span className="gm-home-tag">🏠</span> : null}
         </div>
         {isDone ? (
@@ -135,7 +152,7 @@ export default function MatchCard({
         ) : (
           <div className="gm-result">— : —</div>
         )}
-        <div className={'gm-team right' + (w2 ? ' gm-winner' : '')}><span className="gm-team-name">{match.t2}</span></div>
+        <div className={'gm-team right' + (w2 ? ' gm-winner' : '')}><span className="gm-team-name">{displayName(match.t2)}</span></div>
         {isDone && editable && (
           <button className="gm-edit" title="Редактировать счёт" onClick={onEdit}>✏️</button>
         )}
