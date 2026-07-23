@@ -36,7 +36,9 @@ header {
   backdrop-filter: blur(10px);
 }
 .header-top { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; }
+.header-title { appearance: none; border: 0; padding: 0; margin: 0; background: transparent; cursor: pointer; text-align: left; }
 header h1 { font-size: clamp(1.1rem, 3vw, 1.5rem); font-weight: 700; letter-spacing: -0.5px; color: var(--green); text-shadow: 0 0 20px rgba(34,197,94,0.4); }
+.header-title:hover h1 { color: var(--green-2); }
 .header-nav { display: flex; gap: 4px; }
 .nav-btn {
   background: none; border: none; color: var(--text-muted);
@@ -163,6 +165,7 @@ textarea { min-height: 140px; line-height: 1.7; }
 
 #winner-section { text-align: center; padding: 40px 20px; }
 .trophy { font-size: 5rem; animation: bounce 1s ease infinite alternate; display: block; margin-bottom: 16px; }
+.habib-trophy { width: min(72vw, 360px); height: min(72vw, 360px); object-fit: contain; display: block; margin: 0 auto 18px; filter: drop-shadow(0 18px 40px rgba(250,204,21,0.28)); animation: bounce 1s ease infinite alternate; }
 @keyframes bounce { from { transform: translateY(0) scale(1); } to { transform: translateY(-10px) scale(1.05); } }
 .winner-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 8px; }
 .winner-name { font-size: clamp(2rem, 8vw, 3.5rem); font-weight: 800; background: linear-gradient(135deg, var(--gold), #f59e0b, var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -1px; line-height: 1.1; }
