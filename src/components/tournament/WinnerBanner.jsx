@@ -1,6 +1,9 @@
 import React from 'react';
 import ConfettiEffect from './ConfettiEffect.jsx';
 import { downloadTournamentJson } from '../../utils/exportTournament.js';
+
+const habibTrophySrc = `${import.meta.env.BASE_URL}prince_habibu.jpg`;
+
 export default function WinnerBanner({ tournament, celebrate, onNewTournament, onReopen, readOnly = false }) {
   function handleReopen() {
     if (confirm('Вернуть турнир в игру и снять пометку "завершён"? Можно будет исправить любой матч.')) {
@@ -20,7 +23,7 @@ export default function WinnerBanner({ tournament, celebrate, onNewTournament, o
       {celebrate && <ConfettiEffect key={tournament.winner} />}
       <div className="card" id="winner-section">
         {isHabibWinner ? (
-          <img className="habib-trophy" src="/prince_habibu.ico" alt="Prince Habibu" />
+          <img className="habib-trophy" src={habibTrophySrc} alt="Prince Habibu" />
         ) : (
           <span className="trophy">🏆</span>
         )}
