@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 export default function ShareCard({ tournamentId }) {
   const [copied, setCopied] = useState(false);
-  const url = `${location.origin}${location.pathname}?view=${encodeURIComponent(tournamentId)}`;
+  const url = `${location.origin}${location.pathname}#/view/${encodeURIComponent(tournamentId)}`;
 
   function copy() {
     navigator.clipboard.writeText(url).then(() => {
