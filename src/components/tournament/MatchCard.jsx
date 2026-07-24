@@ -117,7 +117,7 @@ export default function MatchCard({
             <button className="confirm-btn" onClick={handleConfirm}>Подтвердить ✓</button>
           </>
         )}
-        {isDone && editable && (
+        {isDone && editable && !isByeMatch && (
           <button className="edit-match-btn" onClick={onEdit}>✏️ Изменить счёт</button>
         )}
       </div>
