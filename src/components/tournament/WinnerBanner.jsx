@@ -11,7 +11,6 @@ export default function WinnerBanner({ tournament, celebrate, onNewTournament, o
   const winnerMeta = participantMeta[tournament.winner];
   const winnerNameParts = [
     tournament.winner,
-    winnerName,
     ...(winnerMeta?.members || []),
   ].flatMap(name => String(name || '').split(/[&/+]/));
   const isHabibWinner = winnerNameParts.some(name => name.trim().toLocaleLowerCase('ru-RU') === 'хабиб');
