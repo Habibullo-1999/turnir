@@ -6,7 +6,11 @@ const TournamentContext = createContext(null);
 export function TournamentProvider({ children }) {
   const [tournament, setTournament] = useState(null);
   const [openError, setOpenError] = useState(null);
-  const [opening, setOpening] = useState(false);
+  // Starts true (synchronously, before any effect runs) whenever the URL
+  // already has a `tid` to restore — otherwise TournamentRoute's very first
+  // render sees `opening: false, tournament: null` and redirects home before
+  // the mount effect below even gets a chance to start reopening it.
+  const [opening, setOpening] = useState(() => Boolean(new URLSearchParams(window.location.search).get('tid')));
   const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
   const [saveError, setSaveError] = useState(null);
 

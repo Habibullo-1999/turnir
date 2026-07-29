@@ -44,7 +44,7 @@ function aggregateLadderStats(history) {
   const allStats = {};
   history.forEach(entry => {
     buildLadderRanking(entry).forEach(row => {
-      if (!allStats[row.name]) allStats[row.name] = { tournaments: 0, gold: 0, silver: 0, bronze: 0, bestRound: 0 };
+      if (!allStats[row.name]) allStats[row.name] = { tournaments: 0, gold: 0, silver: 0, bronze: 0, bestRound: 0, totalReps: 0 };
       const s = allStats[row.name];
       s.tournaments++;
       if (row.rank === 1) s.gold++;
@@ -52,6 +52,7 @@ function aggregateLadderStats(history) {
       else if (row.rank === 3) s.bronze++;
       const survivedRounds = row.eliminatedRound != null ? row.eliminatedRound - 1 : (entry.round || 1);
       if (survivedRounds > s.bestRound) s.bestRound = survivedRounds;
+      s.totalReps += row.totalReps || 0;
     });
   });
   return Object.entries(allStats).sort((a, b) => b[1].gold - a[1].gold || b[1].bestRound - a[1].bestRound);
@@ -243,7 +244,7 @@ export default function HistoryList() {
             <table className="stats-table">
               <thead>
                 <tr>
-                  <th>Игрок</th><th>Турниров</th><th>🥇</th><th>🥈</th><th>🥉</th><th>Лучший результат</th>
+                  <th>Игрок</th><th>Турниров</th><th>🥇</th><th>🥈</th><th>🥉</th><th>Лучший результат</th><th>Всего подтягиваний</th>
                 </tr>
               </thead>
               <tbody>
@@ -255,6 +256,7 @@ export default function HistoryList() {
                     <td>{s.silver}</td>
                     <td>{s.bronze}</td>
                     <td>{s.bestRound}</td>
+                    <td>{s.totalReps}</td>
                   </tr>
                 ))}
               </tbody>

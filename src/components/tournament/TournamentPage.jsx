@@ -13,7 +13,7 @@ import {
   confirmGroupScore, clearGroupMatch, advanceGroupsToPlayoff, reopenTournament,
 } from '../../utils/matchActions.js';
 import { swapBracketSlots, movePlayerToGroup } from '../../utils/manualRearrange.js';
-import { markPassed, markFailed, undoMark, advanceRound } from '../../utils/ladderActions.js';
+import { markPassed, markFailed, undoMark, advanceRound, reopenLadder } from '../../utils/ladderActions.js';
 import { confirmAmericanoScore, clearAmericanoScore } from '../../utils/americanoActions.js';
 import { getSportConfig } from '../../utils/sportConfig.js';
 
@@ -79,8 +79,8 @@ export default function TournamentPage({ onHome }) {
   function handleLadderPass(name) {
     mutate(draft => markPassed(draft, name));
   }
-  function handleLadderFail(name) {
-    mutate(draft => markFailed(draft, name));
+  function handleLadderFail(name, reps) {
+    mutate(draft => markFailed(draft, name, reps));
   }
   function handleLadderUndo(name) {
     mutate(draft => undoMark(draft, name));
@@ -101,7 +101,7 @@ export default function TournamentPage({ onHome }) {
   }
   function handleReopen() {
     setJustFinished(false);
-    mutate(draft => reopenTournament(draft));
+    mutate(draft => (isTurnik ? reopenLadder(draft) : reopenTournament(draft)));
   }
   function handleNewTournament() {
     setJustFinished(false);
