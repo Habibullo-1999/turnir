@@ -48,6 +48,16 @@ function CreateTournamentPage() {
   );
 }
 
+function TournamentsPage() {
+  const navigate = useNavigate();
+  return (
+    <div className="card">
+      <div className="card-title">Активные турниры</div>
+      <ActiveTournamentsList onOpen={() => navigate('/tournament')} />
+    </div>
+  );
+}
+
 function TournamentRoute() {
   const navigate = useNavigate();
   const { tournament, opening, openError } = useTournament();
@@ -78,6 +88,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/create/:sport" element={<CreateTournamentPage />} />
           <Route path="/tournament" element={<TournamentRoute />} />
+          <Route path="/tournaments" element={<TournamentsPage />} />
           <Route path="/history" element={<HistoryList />} />
         </Route>
         <Route path="*" element={<LegacyViewRedirect />} />
