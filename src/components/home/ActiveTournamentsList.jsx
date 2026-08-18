@@ -15,7 +15,7 @@ export default function ActiveTournamentsList({ sport, onOpen }) {
     setLoading(true);
     setError(null);
     listActive()
-      .then(list => setTournaments(list.filter(t => (t.sport || FOOTBALL) === sport)))
+      .then(list => setTournaments(sport ? list.filter(t => (t.sport || FOOTBALL) === sport) : list))
       .catch(err => setError(`Не удалось загрузить список турниров: ${err.message}`))
       .finally(() => setLoading(false));
   }, [sport]);

@@ -21,6 +21,14 @@ function ClubBadge({ meta }) {
   );
 }
 
+function ClubIcon({ meta }) {
+  if (!meta || !meta.club) return null;
+  if (meta.icon) {
+    return <img src={`${import.meta.env.BASE_URL}${meta.icon}`} alt="" className="gm-club-icon" />;
+  }
+  return <span className="gm-club-flag" aria-hidden="true">{meta.flag}</span>;
+}
+
 // Shared by Bracket and GroupStage so every tournament format gets the exact
 // same manual-edit behaviour: enter score -> confirm -> shown as played ->
 // "✏️ Изменить счёт" always available while the tournament is active.
@@ -131,8 +139,13 @@ export default function MatchCard({
     <div className={'group-match' + (isDone ? ' played' : ' active')}>
       <div className="gm-row">
         <div className={'gm-team' + (w1 ? ' gm-winner' : '')}>
-          <span className="gm-team-name">{match.t1}</span>
-          {homeTag && match.home ? <span className="gm-home-tag">🏠</span> : null}
+          <div className="gm-team-info">
+            <span className="gm-team-name">
+              {homeTag && match.home ? <span className="gm-home-tag" aria-label="Домашний игрок">🏠</span> : null}
+              <span className="gm-team-name-text">{match.t1}</span>
+              {cfg.hasClub && <ClubIcon meta={playerMeta && playerMeta[match.t1]} />}
+            </span>
+          </div>
         </div>
         {isDone ? (
           <div className="gm-result">{match.score1} : {match.score2}</div>
@@ -145,7 +158,14 @@ export default function MatchCard({
         ) : (
           <div className="gm-result">— : —</div>
         )}
-        <div className={'gm-team right' + (w2 ? ' gm-winner' : '')}><span className="gm-team-name">{match.t2}</span></div>
+        <div className={'gm-team right' + (w2 ? ' gm-winner' : '')}>
+          <div className="gm-team-info">
+            <span className="gm-team-name">
+              <span className="gm-team-name-text">{match.t2}</span>
+              {cfg.hasClub && <ClubIcon meta={playerMeta && playerMeta[match.t2]} />}
+            </span>
+          </div>
+        </div>
         {isDone && editable && (
           <button className="gm-edit" title="Редактировать счёт" onClick={onEdit}>✏️</button>
         )}

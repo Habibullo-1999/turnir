@@ -4,6 +4,7 @@ import Bracket from './Bracket.jsx';
 import WinnerBanner from './WinnerBanner.jsx';
 import ShareCard from './ShareCard.jsx';
 import PenaltyModal from './PenaltyModal.jsx';
+import EditScoreConfirmModal from './EditScoreConfirmModal.jsx';
 import TurnikLadder from './TurnikLadder.jsx';
 import AmericanoBoard from './AmericanoBoard.jsx';
 import SaveIndicator from '../SaveIndicator.jsx';
@@ -20,6 +21,7 @@ import { getSportConfig } from '../../utils/sportConfig.js';
 export default function TournamentPage({ onHome }) {
   const { tournament, mutate, closeTournament, saveStatus, saveError } = useTournament();
   const [penaltyCtx, setPenaltyCtx] = useState(null);
+  const [editCtx, setEditCtx] = useState(null);
   const [advanceError, setAdvanceError] = useState(null);
   const prevStatus = useRef(tournament?.status);
   const [justFinished, setJustFinished] = useState(false);
@@ -44,14 +46,16 @@ export default function TournamentPage({ onHome }) {
   function handleGroupConfirm(gIdx, mIdx, s1, s2) {
     mutate(draft => confirmGroupScore(draft, gIdx, mIdx, s1, s2));
   }
-  function handleGroupEdit(gIdx, mIdx) {
-    mutate(draft => clearGroupMatch(draft, gIdx, mIdx));
+  function requestGroupEdit(gIdx, mIdx) {
+    const match = tournament.groups[gIdx].matches[mIdx];
+    setEditCtx({ type: 'group', gIdx, mIdx, label: `${match.t1} — ${match.t2}` });
   }
   function handleBracketConfirm(rIdx, mIdx, s1, s2) {
     mutate(draft => confirmBracketScore(draft, rIdx, mIdx, s1, s2));
   }
-  function handleBracketEdit(rIdx, mIdx) {
-    mutate(draft => clearBracketMatch(draft, rIdx, mIdx));
+  function requestBracketEdit(rIdx, mIdx) {
+    const match = tournament.rounds[rIdx][mIdx];
+    setEditCtx({ type: 'bracket', rIdx, mIdx, label: `${match.t1} — ${match.t2}` });
   }
   function handleNeedPenalty(rIdx, mIdx, s1, s2) {
     const match = tournament.rounds[rIdx][mIdx];
@@ -96,8 +100,20 @@ export default function TournamentPage({ onHome }) {
   function handleAmericanoConfirm(rIdx, mIdx, s1, s2) {
     mutate(draft => confirmAmericanoScore(draft, rIdx, mIdx, s1, s2));
   }
-  function handleAmericanoEdit(rIdx, mIdx) {
-    mutate(draft => clearAmericanoScore(draft, rIdx, mIdx));
+  function requestAmericanoEdit(rIdx, mIdx) {
+    const match = tournament.rounds[rIdx].matches[mIdx];
+    setEditCtx({ type: 'americano', rIdx, mIdx, label: `${match.pairA.join(' / ')} — ${match.pairB.join(' / ')}` });
+  }
+  function confirmEdit() {
+    if (!editCtx) return;
+    if (editCtx.type === 'group') {
+      mutate(draft => clearGroupMatch(draft, editCtx.gIdx, editCtx.mIdx));
+    } else if (editCtx.type === 'bracket') {
+      mutate(draft => clearBracketMatch(draft, editCtx.rIdx, editCtx.mIdx));
+    } else {
+      mutate(draft => clearAmericanoScore(draft, editCtx.rIdx, editCtx.mIdx));
+    }
+    setEditCtx(null);
   }
   function handleReopen() {
     setJustFinished(false);
@@ -138,7 +154,7 @@ export default function TournamentPage({ onHome }) {
           tournament={tournament}
           editable={editable}
           onConfirm={handleAmericanoConfirm}
-          onEdit={handleAmericanoEdit}
+          onEdit={requestAmericanoEdit}
         />
       )}
 
@@ -149,7 +165,7 @@ export default function TournamentPage({ onHome }) {
               tournament={tournament}
               editable={editable}
               onConfirmMatch={handleGroupConfirm}
-              onEditMatch={handleGroupEdit}
+              onEditMatch={requestGroupEdit}
               onAdvance={handleAdvance}
               onMovePlayer={handleMovePlayer}
             />
@@ -161,7 +177,7 @@ export default function TournamentPage({ onHome }) {
               editable={editable}
               onConfirm={handleBracketConfirm}
               onNeedPenalty={handleNeedPenalty}
-              onEdit={handleBracketEdit}
+              onEdit={requestBracketEdit}
               onSwap={handleSwap}
             />
           )}
@@ -176,6 +192,7 @@ export default function TournamentPage({ onHome }) {
       {tournament.status === 'active' && <ShareCard tournamentId={tournament.id} />}
 
       {isBracketGroup && <PenaltyModal ctx={penaltyCtx} onConfirm={handleConfirmPenalty} onClose={() => setPenaltyCtx(null)} />}
+      <EditScoreConfirmModal ctx={editCtx} onConfirm={confirmEdit} onClose={() => setEditCtx(null)} />
     </div>
   );
 }

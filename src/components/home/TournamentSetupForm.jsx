@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ParticipantRow from './ParticipantRow.jsx';
+import ClubAutocomplete from './ClubAutocomplete.jsx';
 import FormatPicker from './FormatPicker.jsx';
 import { useKnownPlayers } from '../../hooks/useKnownPlayers.js';
 import { buildTournamentPayload } from '../../utils/createTournamentPayload.js';
@@ -19,6 +20,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
   const [name, setName] = useState('');
   const [rows, setRows] = useState(() => [newRow(), newRow()]);
   const [format, setFormat] = useState('playoff');
+  const [selectedClubs, setSelectedClubs] = useState([]);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -29,10 +31,15 @@ export default function TournamentSetupForm({ sport, onCreated }) {
 
   useEffect(() => {
     setRows([newRow(), newRow()]);
+    setSelectedClubs([]);
   }, [sport]);
 
   const knownPlayers = useKnownPlayers(history, sport);
   const existingNames = rows.map(r => r.name.trim()).filter(Boolean);
+
+  useEffect(() => {
+    setSelectedClubs(prev => Array.from({ length: existingNames.length }, (_, index) => prev[index] || null));
+  }, [existingNames.length]);
 
   function updateRow(id, patch) {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
@@ -47,8 +54,29 @@ export default function TournamentSetupForm({ sport, onCreated }) {
   }
 
   function addKnownPlayer(playerName, club) {
-    if (existingNames.includes(playerName)) return;
-    addRow(playerName, club);
+    setRows(prev => {
+      if (prev.some(row => row.name.trim() === playerName)) return prev;
+      const emptyRowIndex = prev.findIndex(row => !row.name.trim());
+      if (emptyRowIndex < 0) return [...prev, newRow(playerName, club)];
+      return prev.map((row, index) => index === emptyRowIndex ? { ...row, name: playerName, club } : row);
+    });
+  }
+
+  function distributeRandomClubs() {
+    const participantRows = rows.filter(row => row.name.trim());
+    if (!participantRows.length) return;
+
+    if (selectedClubs.length !== participantRows.length || selectedClubs.some(club => !club)) return;
+    const clubPool = selectedClubs.slice().sort(() => Math.random() - 0.5);
+    const assignments = participantRows.slice().sort(() => Math.random() - 0.5);
+    const clubsByRowId = new Map(
+      assignments.map((row, index) => {
+        const club = clubPool[index % clubPool.length];
+        return [row.id, { ...club }];
+      }),
+    );
+
+    setRows(prev => prev.map(row => clubsByRowId.has(row.id) ? { ...row, club: clubsByRowId.get(row.id) } : row));
   }
 
   async function handleCreate() {
@@ -102,6 +130,30 @@ export default function TournamentSetupForm({ sport, onCreated }) {
         >
           + Добавить участника
         </button>
+        {cfg.hasClub && (
+          <div className="random-clubs-panel">
+            <div className="random-clubs-heading">Выберите клубы для распределения</div>
+            {existingNames.length > 0 && (
+              <div className="random-club-fields">
+                {selectedClubs.map((club, index) => (
+                  <div key={index} className="random-club-field">
+                    <span>Клуб {index + 1}</span>
+                    <ClubAutocomplete
+                      club={club}
+                      onSelect={value => setSelectedClubs(prev => prev.map((selected, selectedIndex) => selectedIndex === index ? value : selected))}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="random-clubs-controls">
+              <button type="button" className="btn btn-secondary" onClick={distributeRandomClubs} disabled={!existingNames.length || selectedClubs.length !== existingNames.length || selectedClubs.some(club => !club)}>
+                🎲 Распределить
+              </button>
+            </div>
+            <div className="field-hint">Количество полей соответствует количеству заполненных участников. Выберите клуб в каждом поле, затем распределите их случайно.</div>
+          </div>
+        )}
         <div className="field-hint" style={{ marginTop: 6 }}>
           {cfg.engine === 'bracket-group' && `Минимум 2 ${cfg.unitNoun}. Лучший проигравший займёт место BYE.`}
           {cfg.engine === 'turnik-ladder' && `Минимум 2 ${cfg.unitNoun}.`}
