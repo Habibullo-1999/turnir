@@ -58,7 +58,6 @@ export default function GroupStage({ tournament, editable, onConfirmMatch, onEdi
                           playerMeta={participantMeta}
                           sport={tournament.sport}
                           editable={editable}
-                          homeTag={isDoubleLeague}
                           onConfirm={(s1, s2) => onConfirmMatch(gIdx, mIdx, s1, s2)}
                           onEdit={() => onEditMatch(gIdx, mIdx)}
                         />

@@ -38,7 +38,6 @@ export default function MatchCard({
   playerMeta,
   sport,
   editable,
-  homeTag,
   onConfirm,
   onNeedPenalty,
   onEdit,
@@ -141,7 +140,6 @@ export default function MatchCard({
         <div className={'gm-team' + (w1 ? ' gm-winner' : '')}>
           <div className="gm-team-info">
             <span className="gm-team-name">
-              {homeTag && match.home ? <span className="gm-home-tag" aria-label="Домашний игрок">🏠</span> : null}
               <span className="gm-team-name-text">{match.t1}</span>
               {cfg.hasClub && <ClubIcon meta={playerMeta && playerMeta[match.t1]} />}
             </span>
@@ -161,8 +159,8 @@ export default function MatchCard({
         <div className={'gm-team right' + (w2 ? ' gm-winner' : '')}>
           <div className="gm-team-info">
             <span className="gm-team-name">
-              <span className="gm-team-name-text">{match.t2}</span>
               {cfg.hasClub && <ClubIcon meta={playerMeta && playerMeta[match.t2]} />}
+              <span className="gm-team-name-text">{match.t2}</span>
             </span>
           </div>
         </div>

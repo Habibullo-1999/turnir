@@ -42,7 +42,7 @@ export default function HistoryModal({ entry, onClose }) {
                         <div className="group-tour-label">Тур {tIdx + 1}</div>
                         <div className="group-tour-matches">
                           {matchIndices.map(mIdx => (
-                            <MatchCard key={mIdx} variant="group" match={group.matches[mIdx]} playerMeta={participantMeta} sport={entry.sport} editable={false} homeTag={isLeague} />
+                            <MatchCard key={mIdx} variant="group" match={group.matches[mIdx]} playerMeta={participantMeta} sport={entry.sport} editable={false} />
                           ))}
                         </div>
                       </div>
