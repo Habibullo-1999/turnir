@@ -240,6 +240,7 @@ textarea { min-height: 140px; line-height: 1.7; }
 .gm-team-info { flex:1;min-width:0;display:flex;flex-direction:column;gap:2px; }
 .gm-team.right .gm-team-info { align-items:flex-end; }
 .gm-team-name { width:100%;min-width:0;display:flex;align-items:center;gap:4px; }
+.gm-team.right .gm-team-name { justify-content:flex-end; }
 .gm-team-name-text { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 .gm-home-tag { flex:0 0 auto;font-size:.85rem;line-height:1; }
 .gm-club-icon { width:16px;height:16px;object-fit:contain;flex:0 0 auto; }
