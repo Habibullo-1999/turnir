@@ -60,6 +60,7 @@ export default function AmericanoBoard({ tournament, editable, onConfirm = () =>
 
   return (
     <div className="card">
+      <div className="table-scroll">
       <table className="standings-table">
         <thead>
           <tr>
@@ -81,6 +82,7 @@ export default function AmericanoBoard({ tournament, editable, onConfirm = () =>
           ))}
         </tbody>
       </table>
+      </div>
 
       {(tournament.rounds || []).map((round, rIdx) => (
         <div className="group-block" key={rIdx}>

@@ -7,6 +7,7 @@ export default function StandingsTable({ group, advanceCount = 0, sport }) {
   const standings = calcStandings(group);
 
   return (
+    <div className="table-scroll">
     <table className="standings-table">
       <thead>
         <tr>
@@ -39,5 +40,6 @@ export default function StandingsTable({ group, advanceCount = 0, sport }) {
         })}
       </tbody>
     </table>
+    </div>
   );
 }
