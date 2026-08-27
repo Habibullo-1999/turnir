@@ -6,7 +6,8 @@ import { useKnownPlayers } from '../../hooks/useKnownPlayers.js';
 import { buildTournamentPayload } from '../../utils/createTournamentPayload.js';
 import { useTournament } from '../../context/TournamentContext.jsx';
 import { listHistory } from '../../services/tournaments.js';
-import { getSportConfig } from '../../utils/sportConfig.js';
+import { FOOTBALL, getSportConfig } from '../../utils/sportConfig.js';
+import { assignRandomClubs, getLastClubsByPlayer } from '../../utils/randomClubAssignment.js';
 
 let rowIdCounter = 0;
 function newRow(name = '', club = null) {
@@ -67,15 +68,15 @@ export default function TournamentSetupForm({ sport, onCreated }) {
     if (!participantRows.length) return;
 
     if (selectedClubs.length !== participantRows.length || selectedClubs.some(club => !club)) return;
-    const clubPool = selectedClubs.slice().sort(() => Math.random() - 0.5);
-    const assignments = participantRows.slice().sort(() => Math.random() - 0.5);
-    const clubsByRowId = new Map(
-      assignments.map((row, index) => {
-        const club = clubPool[index % clubPool.length];
-        return [row.id, { ...club }];
-      }),
-    );
+    const lastClubs = getLastClubsByPlayer(history, sport, FOOTBALL);
+    const clubsByRowId = assignRandomClubs(participantRows, selectedClubs, lastClubs);
 
+    if (!clubsByRowId) {
+      setError('Невозможно распределить выбранные клубы без повторения команд из последнего турнира. Измените набор клубов.');
+      return;
+    }
+
+    setError(null);
     setRows(prev => prev.map(row => clubsByRowId.has(row.id) ? { ...row, club: clubsByRowId.get(row.id) } : row));
   }
 
