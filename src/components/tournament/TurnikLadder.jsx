@@ -107,6 +107,7 @@ export default function TurnikLadder({ tournament, editable, onPass, onFail, onU
       {eliminatedRows.length > 0 && (
         <div style={{ marginTop: 16 }}>
           <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 6 }}>Выбывшие:</div>
+          <div className="table-scroll">
           <table className="standings-table">
             <thead>
               <tr>
@@ -127,6 +128,7 @@ export default function TurnikLadder({ tournament, editable, onPass, onFail, onU
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

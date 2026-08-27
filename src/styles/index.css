@@ -216,6 +216,8 @@ textarea { min-height: 140px; line-height: 1.7; }
 .group-name { font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--green);margin-bottom:12px;display:flex;align-items:center;gap:8px; }
 .group-name::before { content:'';display:block;width:3px;height:14px;background:var(--green);border-radius:2px; }
 
+.table-scroll { max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; margin-bottom:16px; }
+.table-scroll > table { min-width:max-content; margin-bottom:0; }
 .standings-table { width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:16px; }
 .standings-table th { text-align:center;padding:6px 8px;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);border-bottom:1px solid var(--border);font-weight:600; }
 .standings-table th:first-child { text-align:left; }

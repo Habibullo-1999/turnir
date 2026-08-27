@@ -26,7 +26,7 @@ function aggregateStats(history) {
       // Firebase stores objects keyed by small-integer-like strings (e.g. a
       // player literally named "1") as sparse arrays, so entry 0 can be null.
       if (!s) return;
-      if (!allStats[player]) allStats[player] = { wins: 0, draws: 0, losses: 0, played: 0, tournaments: 0, trophies: 0, goalsFor: 0, goalsAgainst: 0 };
+      if (!allStats[player]) allStats[player] = { wins: 0, draws: 0, losses: 0, played: 0, tournaments: 0, trophies: 0, goalsFor: 0, goalsAgainst: 0, championships: [] };
       allStats[player].wins += s.wins || 0;
       allStats[player].draws += s.draws || 0;
       allStats[player].losses += s.losses ?? (s.played || 0) - (s.wins || 0);
@@ -34,7 +34,14 @@ function aggregateStats(history) {
       allStats[player].tournaments++;
       allStats[player].goalsFor += s.goalsFor || 0;
       allStats[player].goalsAgainst += s.goalsAgainst || 0;
-      if (entry.winner === player) allStats[player].trophies++;
+      if (entry.winner === player) {
+        const participantMeta = entry.participantMeta || entry.playerMeta || {};
+        allStats[player].trophies++;
+        allStats[player].championships.push({
+          tournament: entry.name || 'Турнир',
+          club: participantMeta[player]?.club || 'Команда не указана',
+        });
+      }
     });
   });
   return Object.entries(allStats).sort((a, b) => b[1].trophies - a[1].trophies || b[1].wins - a[1].wins);
@@ -241,6 +248,7 @@ export default function HistoryList() {
       ) : (
         <>
           {isTurnik && sortedStats.length > 0 && (
+            <div className="table-scroll">
             <table className="stats-table">
               <thead>
                 <tr>
@@ -261,9 +269,11 @@ export default function HistoryList() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           {isAmericano && sortedStats.length > 0 && (
+            <div className="table-scroll">
             <table className="stats-table">
               <thead>
                 <tr>
@@ -286,9 +296,11 @@ export default function HistoryList() {
                 })}
               </tbody>
             </table>
+            </div>
           )}
 
           {!isTurnik && !isAmericano && sortedStats.length > 0 && (
+            <div className="table-scroll">
             <table className="stats-table">
               <thead>
                 <tr>
@@ -301,10 +313,13 @@ export default function HistoryList() {
                 {sortedStats.map(([name, s], i) => {
                   const isChamp = i === 0 && s.trophies > 0;
                   const diff = s.goalsFor - s.goalsAgainst;
+                  const championshipsTooltip = s.championships.length
+                    ? `Чемпионские команды:\n${s.championships.map(({ club, tournament }) => `${club} — ${tournament}`).join('\n')}`
+                    : undefined;
                   return (
                     <tr key={name}>
                       <td>{isChamp ? '👑 ' : ''}{name}</td>
-                      <td className="td-gold">{s.trophies}</td>
+                      <td className="td-gold" title={championshipsTooltip}>{s.trophies}</td>
                       <td>{s.played}</td>
                       <td className="td-green">{s.wins}</td>
                       {cfg.hasDraws && <td>{s.draws}</td>}
@@ -317,6 +332,7 @@ export default function HistoryList() {
                 })}
               </tbody>
             </table>
+            </div>
           )}
 
           <div className="history-list">
