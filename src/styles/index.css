@@ -331,3 +331,42 @@ textarea { min-height: 140px; line-height: 1.7; }
 .history-modal-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
 .history-modal-groups { display: flex; flex-direction: column; gap: 18px; margin-bottom: 20px; }
 .history-modal-section-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--green); margin-bottom: 10px; padding-left: 2px; }
+
+/* Реальный футбол: карточка одного матча (team-match-log) */
+.tml-match-meta { display:flex;align-items:center;gap:10px;margin:-4px 0 14px;flex-wrap:wrap; }
+.tml-match-when { font-size:0.78rem;color:var(--text-muted); }
+.tml-field { display:flex;flex-direction:column;gap:4px; }
+.tml-field > span { font-size:0.7rem;color:var(--text-dim); }
+.tml-text-input { background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.82rem;font-family:inherit;padding:7px 10px;outline:none; }
+.tml-text-input:focus { border-color:var(--green-dim);box-shadow:0 0 0 2px var(--green-glow); }
+
+.tml-scoreboard { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:12px; }
+.tml-team-panel { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;transition:border-color .2s; }
+.tml-team-panel.winner { border-color:var(--green-dim);background:rgba(34,197,94,0.05); }
+.tml-team-panel-head { display:flex;align-items:center;gap:10px;margin-bottom:10px; }
+.tml-team-name-input { flex:1;min-width:0;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.88rem;font-weight:700;font-family:inherit;padding:8px 10px;outline:none; }
+.tml-team-name-input:focus { border-color:var(--green-dim);box-shadow:0 0 0 2px var(--green-glow); }
+.tml-side-name { flex:1;min-width:0;font-size:0.95rem;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.tml-big-score { font-size:1.7rem;font-weight:800;color:var(--text-muted);line-height:1;min-width:34px;text-align:center;flex-shrink:0; }
+.tml-big-score.tml-win { color:var(--green); }
+
+.tml-roster { display:flex;flex-direction:column;gap:5px; }
+.tml-roster-row { display:flex;align-items:center;gap:8px;padding:2px 0; }
+.tml-roster-name { flex:1;min-width:0;font-size:0.85rem;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.tml-goal-ctl { display:flex;align-items:center;gap:2px;flex-shrink:0; }
+.tml-goal-ctl button { width:26px;height:26px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--green);font-size:0.95rem;font-weight:700;line-height:1;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center; }
+.tml-goal-ctl button:hover:not(:disabled) { border-color:var(--green-dim);background:var(--green-glow); }
+.tml-goal-ctl button:disabled { opacity:0.3;cursor:not-allowed; }
+.tml-goal-count { min-width:20px;text-align:center;font-size:0.85rem;font-weight:700;color:var(--text); }
+.tml-goal-badge { font-size:0.72rem;color:var(--text-dim);flex-shrink:0;min-width:38px;text-align:right; }
+.tml-goal-badge.scorer { color:var(--green);font-weight:700; }
+.tml-roster-btn { background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-dim);width:26px;height:26px;font-size:0.72rem;line-height:1;cursor:pointer;font-family:inherit;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s; }
+.tml-roster-btn:hover { border-color:var(--green-dim);color:var(--green); }
+
+.tml-attributed { font-size:0.68rem;color:var(--green);margin-top:10px;padding-top:8px;border-top:1px solid var(--border); }
+.tml-attributed.warn { color:var(--lucky); }
+
+.tml-scorers { display:flex;flex-wrap:wrap;gap:8px; }
+.tml-scorer { display:inline-flex;align-items:baseline;gap:6px;background:var(--surface);border:1px solid rgba(34,197,94,0.3);border-radius:20px;padding:5px 12px;font-size:0.8rem;color:var(--green); }
+.tml-scorer b { color:var(--text);font-weight:600; }
+.tml-scorer-team { font-size:0.68rem;color:var(--text-dim); }

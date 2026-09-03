@@ -1,4 +1,5 @@
 export const FOOTBALL = 'football';
+export const FOOTBALL_REAL = 'football-real';
 export const TT_SINGLES = 'table-tennis-1x1';
 export const TT_DOUBLES = 'table-tennis-2x2';
 export const TURNIK = 'turnik';
@@ -16,6 +17,18 @@ export const SPORT_CONFIG = {
     diffLabel: 'Голы',
     diffGenitive: 'голов',
     doubleRoundRobinLeague: true,
+  },
+  [FOOTBALL_REAL]: {
+    sport: FOOTBALL_REAL,
+    label: 'Реальный футбол',
+    icon: '🥅',
+    engine: 'team-match-log',
+    hasClub: false,
+    hasPenalty: false,
+    hasDraws: true,
+    unitNoun: 'игроков',
+    diffLabel: 'Голы',
+    diffGenitive: 'голов',
   },
   [TT_SINGLES]: {
     sport: TT_SINGLES,

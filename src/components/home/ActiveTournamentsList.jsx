@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { listActive } from '../../services/tournaments.js';
 import { useTournament } from '../../context/TournamentContext.jsx';
 import { getSportConfig, FOOTBALL } from '../../utils/sportConfig.js';
+import { getScores, getTeams, hasTeams } from '../../utils/teamMatchLog.js';
 
 const FORMAT_LABEL = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы + Плей-офф', league: '🏅 Лига' };
 
@@ -56,6 +57,7 @@ export default function ActiveTournamentsList({ sport, onOpen }) {
                   const tCfg = getSportConfig(t.sport);
                   const label = tCfg.engine === 'turnik-ladder' ? `🔝 Раунд ${t.round || 1}`
                     : tCfg.engine === 'americano' ? `${tCfg.icon} Американо`
+                    : tCfg.engine === 'team-match-log' ? `${tCfg.icon} ${hasTeams(t) ? `${getTeams(t)[0].name} ${getScores(t)[0]} : ${getScores(t)[1]} ${getTeams(t)[1].name}` : 'команды не разделены'}`
                     : (FORMAT_LABEL[t.format] || t.format || '');
                   return `${label} · ${(t.players || []).length} ${tCfg.unitNoun}`;
                 })()}

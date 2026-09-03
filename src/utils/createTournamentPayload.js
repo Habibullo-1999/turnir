@@ -2,6 +2,7 @@ import { nextPow2, shuffle, buildRounds, propagateWinners } from './bracket.js';
 import { buildGroups, buildLeague } from './groups.js';
 import { buildAmericanoRounds } from './americano.js';
 import { getSportConfig, FOOTBALL, TURNIK } from './sportConfig.js';
+import { MIN_TEAM_LOG_PLAYERS, buildTeams } from './teamMatchLog.js';
 
 // participants: [{ name: string, club: {club,league,flag,icon} | null }]
 export function buildTournamentPayload({ name, participants, format, sport = FOOTBALL }) {
@@ -19,6 +20,30 @@ export function buildTournamentPayload({ name, participants, format, sport = FOO
       round: 1,
       passed: {},
       eliminated: {},
+    };
+  }
+
+  // «Реальный футбол» — один настоящий матч для статистики. Сетки нет: те, кто
+  // пришёл, сразу делятся на две команды, а дальше в записи ведутся счёт и
+  // авторы голов.
+  if (cfg.engine === 'team-match-log') {
+    const names = participants.map(p => p.name.trim()).filter(Boolean);
+    if (names.length < MIN_TEAM_LOG_PLAYERS) {
+      throw new Error(`Введите минимум ${MIN_TEAM_LOG_PLAYERS} игроков.`);
+    }
+    // Вся статистика этого режима заведена на имя игрока (состав, авторы
+    // голов), поэтому тёзки здесь ломали бы её молча — проверяем сразу.
+    const duplicate = names.find((n, i) => names.indexOf(n) !== i);
+    if (duplicate) {
+      throw new Error(`Игрок «${duplicate}» указан дважды — имена должны быть уникальными.`);
+    }
+    return {
+      name: name.trim() || 'Матч',
+      sport,
+      players: names,
+      playedAt: Date.now(),
+      scores: [0, 0],
+      teams: buildTeams(names),
     };
   }
 

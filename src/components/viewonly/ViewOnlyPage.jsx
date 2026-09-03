@@ -4,6 +4,8 @@ import Bracket from '../tournament/Bracket.jsx';
 import WinnerBanner from '../tournament/WinnerBanner.jsx';
 import TurnikLadder from '../tournament/TurnikLadder.jsx';
 import AmericanoBoard from '../tournament/AmericanoBoard.jsx';
+import TeamMatchBoard from '../tournament/TeamMatchBoard.jsx';
+import { DRAW_LABEL } from '../../utils/teamMatchLog.js';
 import { getTournament } from '../../services/tournaments.js';
 import { getSportConfig } from '../../utils/sportConfig.js';
 
@@ -46,6 +48,7 @@ export default function ViewOnlyPage({ id }) {
   const isTurnik = cfg.engine === 'turnik-ladder';
   const isAmericano = cfg.engine === 'americano';
   const isBracketGroup = cfg.engine === 'bracket-group';
+  const isTeamMatchLog = cfg.engine === 'team-match-log';
   const isGroupFormat = tournament.format === 'group' || tournament.format === 'group+playoff' || tournament.format === 'league';
 
   return (
@@ -58,7 +61,10 @@ export default function ViewOnlyPage({ id }) {
         <div className="vo-hero">
           <div className="vo-hero-name">{tournament.name || 'Турнир'}</div>
           <div className="vo-hero-sub">
-            {isTurnik ? `${cfg.icon} Турник` : isAmericano ? `${cfg.icon} Американо` : (FORMAT_LABEL[tournament.format] || '')} · {(tournament.players || []).length} {cfg.unitNoun}
+            {isTurnik ? `${cfg.icon} Турник`
+              : isAmericano ? `${cfg.icon} Американо`
+              : isTeamMatchLog ? `${cfg.icon} Реальный футбол`
+              : (FORMAT_LABEL[tournament.format] || '')} · {(tournament.players || []).length} {cfg.unitNoun}
           </div>
           <div className="vo-refresh">
             <span>Обновление через <span>{countdown}</span> сек</span>
@@ -68,6 +74,7 @@ export default function ViewOnlyPage({ id }) {
 
         {isTurnik && <TurnikLadder tournament={tournament} editable={false} />}
         {isAmericano && <AmericanoBoard tournament={tournament} editable={false} />}
+        {isTeamMatchLog && <TeamMatchBoard tournament={tournament} editable={false} />}
         {isBracketGroup && (
           <>
             {isGroupFormat && tournament.groups?.length > 0 && (
@@ -79,7 +86,15 @@ export default function ViewOnlyPage({ id }) {
           </>
         )}
         {tournament.status === 'finished' && tournament.winner && (
-          <WinnerBanner tournament={tournament} celebrate={false} readOnly />
+          <WinnerBanner
+            tournament={tournament}
+            celebrate={false}
+            readOnly
+            {...(isTeamMatchLog ? {
+              label: tournament.winner === DRAW_LABEL ? 'Итог матча' : 'Победитель матча',
+              icon: tournament.winner === DRAW_LABEL ? '🤝' : '🏆',
+            } : {})}
+          />
         )}
       </div>
     </div>

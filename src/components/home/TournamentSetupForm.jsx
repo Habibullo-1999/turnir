@@ -8,6 +8,7 @@ import { useTournament } from '../../context/TournamentContext.jsx';
 import { listHistory } from '../../services/tournaments.js';
 import { FOOTBALL, getSportConfig } from '../../utils/sportConfig.js';
 import { assignRandomClubs, getLastClubsByPlayer } from '../../utils/randomClubAssignment.js';
+import { MIN_TEAM_LOG_PLAYERS } from '../../utils/teamMatchLog.js';
 
 let rowIdCounter = 0;
 function newRow(name = '', club = null) {
@@ -30,8 +31,11 @@ export default function TournamentSetupForm({ sport, onCreated }) {
     listHistory().then(setHistory).catch(() => setHistory([]));
   }, []);
 
+  // Реальный футбол начинается минимум с 4 игроков (2×2), остальным видам
+  // спорта хватает двух — сразу открываем нужное количество полей.
   useEffect(() => {
-    setRows([newRow(), newRow()]);
+    const initialRows = cfg.engine === 'team-match-log' ? MIN_TEAM_LOG_PLAYERS : 2;
+    setRows(Array.from({ length: initialRows }, () => newRow()));
     setSelectedClubs([]);
   }, [sport]);
 
@@ -101,11 +105,11 @@ export default function TournamentSetupForm({ sport, onCreated }) {
 
   return (
     <div className="card" id="setup-card">
-      <div className="card-title">Настройка турнира</div>
+      <div className="card-title">{cfg.engine === 'team-match-log' ? 'Новый матч' : 'Настройка турнира'}</div>
       <input
         type="text"
         id="tournament-name"
-        placeholder="Название турнира (напр. Летний кубок 2026)"
+        placeholder={cfg.engine === 'team-match-log' ? 'Название матча (напр. Среда, поле у школы)' : 'Название турнира (напр. Летний кубок 2026)'}
         value={name}
         onChange={e => setName(e.target.value)}
       />
@@ -159,6 +163,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
           {cfg.engine === 'bracket-group' && `Минимум 2 ${cfg.unitNoun}. Лучший проигравший займёт место BYE.`}
           {cfg.engine === 'turnik-ladder' && `Минимум 2 ${cfg.unitNoun}.`}
           {cfg.engine === 'americano' && 'Минимум 3 участника. Команды формируются автоматически и меняются каждый раунд.'}
+          {cfg.engine === 'team-match-log' && `Минимум ${MIN_TEAM_LOG_PLAYERS} игроков. Те, кто пришёл, сразу разделятся на две команды поровну — при нечётном числе лишний идёт в усиление случайной. Составы потом можно поправить.`}
         </div>
       </div>
 
@@ -200,7 +205,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
 
       <div className="btn-row">
         <button className="btn btn-primary" onClick={handleCreate} disabled={creating}>
-          {creating ? 'Создаём…' : '⚡ Создать турнир'}
+          {creating ? 'Создаём…' : cfg.engine === 'team-match-log' ? '⚡ Создать матч' : '⚡ Создать турнир'}
         </button>
       </div>
     </div>

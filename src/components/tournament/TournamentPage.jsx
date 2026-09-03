@@ -7,6 +7,7 @@ import PenaltyModal from './PenaltyModal.jsx';
 import EditScoreConfirmModal from './EditScoreConfirmModal.jsx';
 import TurnikLadder from './TurnikLadder.jsx';
 import AmericanoBoard from './AmericanoBoard.jsx';
+import TeamMatchBoard from './TeamMatchBoard.jsx';
 import SaveIndicator from '../SaveIndicator.jsx';
 import { useTournament } from '../../context/TournamentContext.jsx';
 import {
@@ -16,7 +17,35 @@ import {
 import { swapBracketSlots, movePlayerToGroup } from '../../utils/manualRearrange.js';
 import { markPassed, markFailed, undoMark, advanceRound, reopenLadder } from '../../utils/ladderActions.js';
 import { confirmAmericanoScore, clearAmericanoScore } from '../../utils/americanoActions.js';
+import {
+  renameTeam, setScore, setPlayedAt, bumpGoal, movePlayer,
+  reshuffleTeams, finishMatch, reopenMatch,
+} from '../../utils/teamMatchActions.js';
 import { getSportConfig } from '../../utils/sportConfig.js';
+import { DRAW_LABEL, getScores, matchResult, pluralGoals } from '../../utils/teamMatchLog.js';
+
+// В «реальном футболе» нет чемпиона турнира — есть победитель одного матча
+// (или ничья), а лучший бомбардир идёт отдельной строкой.
+const TEAM_MATCH_BANNER = {
+  reopenLabel: '↩️ Вернуть матч (исправить)',
+  newLabel: '🔁 Новый матч',
+  reopenPrompt: 'Вернуть матч в работу и снять пометку «завершён»? Можно будет исправить счёт и составы.',
+};
+
+function teamMatchBannerProps(tournament) {
+  const { draw, topScorer } = matchResult(tournament);
+  const [s1, s2] = getScores(tournament);
+  const scoreLine = `${s1} : ${s2}`;
+  const scorerLine = topScorer
+    ? ` · 👟 ${topScorer.name} — ${pluralGoals(topScorer.goals)}`
+    : ' · голов никто не забил';
+  return {
+    ...TEAM_MATCH_BANNER,
+    label: draw ? 'Итог матча' : 'Победитель матча',
+    icon: draw ? '🤝' : '🏆',
+    subText: `${scoreLine}${scorerLine}`,
+  };
+}
 
 export default function TournamentPage({ onHome }) {
   const { tournament, mutate, closeTournament, saveStatus, saveError } = useTournament();
@@ -41,6 +70,7 @@ export default function TournamentPage({ onHome }) {
   const isTurnik = cfg.engine === 'turnik-ladder';
   const isAmericano = cfg.engine === 'americano';
   const isBracketGroup = cfg.engine === 'bracket-group';
+  const isTeamMatchLog = cfg.engine === 'team-match-log';
   const isGroupFormat = tournament.format === 'group' || tournament.format === 'group+playoff' || tournament.format === 'league';
 
   function handleGroupConfirm(gIdx, mIdx, s1, s2) {
@@ -104,6 +134,14 @@ export default function TournamentPage({ onHome }) {
     const match = tournament.rounds[rIdx].matches[mIdx];
     setEditCtx({ type: 'americano', rIdx, mIdx, label: `${match.pairA.join(' / ')} — ${match.pairB.join(' / ')}` });
   }
+  function runTeamMatchAction(action) {
+    setAdvanceError(null);
+    try {
+      mutate(action);
+    } catch (err) {
+      setAdvanceError(err.message);
+    }
+  }
   function confirmEdit() {
     if (!editCtx) return;
     if (editCtx.type === 'group') {
@@ -117,7 +155,11 @@ export default function TournamentPage({ onHome }) {
   }
   function handleReopen() {
     setJustFinished(false);
-    mutate(draft => (isTurnik ? reopenLadder(draft) : reopenTournament(draft)));
+    mutate(draft => {
+      if (isTurnik) reopenLadder(draft);
+      else if (isTeamMatchLog) reopenMatch(draft);
+      else reopenTournament(draft);
+    });
   }
   function handleNewTournament() {
     setJustFinished(false);
@@ -158,6 +200,20 @@ export default function TournamentPage({ onHome }) {
         />
       )}
 
+      {isTeamMatchLog && (
+        <TeamMatchBoard
+          tournament={tournament}
+          editable={editable}
+          onRenameTeam={(side, name) => runTeamMatchAction(draft => renameTeam(draft, side, name))}
+          onSetScore={(side, value) => runTeamMatchAction(draft => setScore(draft, side, value))}
+          onSetDate={ts => runTeamMatchAction(draft => setPlayedAt(draft, ts))}
+          onBumpGoal={(side, player, delta) => runTeamMatchAction(draft => bumpGoal(draft, side, player, delta))}
+          onMovePlayer={(player, toSide) => runTeamMatchAction(draft => movePlayer(draft, player, toSide))}
+          onReshuffle={() => runTeamMatchAction(draft => reshuffleTeams(draft))}
+          onFinish={() => runTeamMatchAction(draft => finishMatch(draft))}
+        />
+      )}
+
       {isBracketGroup && (
         <>
           {isGroupFormat && (
@@ -186,7 +242,13 @@ export default function TournamentPage({ onHome }) {
       {advanceError && <div style={{ color: 'var(--red)', margin: '8px 0' }}>⚠️ {advanceError}</div>}
 
       {tournament.status === 'finished' && tournament.winner && (
-        <WinnerBanner tournament={tournament} celebrate={justFinished} onNewTournament={handleNewTournament} onReopen={handleReopen} />
+        <WinnerBanner
+          tournament={tournament}
+          celebrate={justFinished}
+          onNewTournament={handleNewTournament}
+          onReopen={handleReopen}
+          {...(isTeamMatchLog ? teamMatchBannerProps(tournament) : {})}
+        />
       )}
 
       {tournament.status === 'active' && <ShareCard tournamentId={tournament.id} />}

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { listHistory, reopenFinishedTournament } from '../../services/tournaments.js';
 import { computeTournamentResult } from '../../utils/computeStats.js';
 import { buildLadderRanking } from '../../utils/ladder.js';
+import { DRAW_LABEL, computeMatchStats, getScores, matchResult, pluralPlayers } from '../../utils/teamMatchLog.js';
 import { SPORT_CONFIG, getSportConfig, FOOTBALL } from '../../utils/sportConfig.js';
 import HistoryModal from './HistoryModal.jsx';
 
@@ -99,9 +100,39 @@ function aggregateAmericanoPairStats(history) {
   return Object.values(table).sort((a, b) => b.w - a.w || (b.pf - b.pa) - (a.pf - a.pa));
 }
 
+// «Реальный футбол»: сквозной личный зачёт по всем сыгранным матчам — сколько
+// человек забил, сколько сыграл, сколько выиграл и сколько раз был лучшим
+// бомбардиром матча. Пересчитывается из сырых матчей, кеш `stats` не нужен.
+function aggregateTeamMatchStats(history) {
+  const allStats = {};
+  history.forEach(entry => {
+    const topScorer = matchResult(entry).topScorer;
+    computeMatchStats(entry).forEach(row => {
+      if (!allStats[row.name]) {
+        allStats[row.name] = { played: 0, goals: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, boots: 0 };
+      }
+      const s = allStats[row.name];
+      s.played++;
+      s.goals += row.goals;
+      s.gf += row.gf;
+      s.ga += row.ga;
+      if (row.result === 'win') s.wins++;
+      else if (row.result === 'loss') s.losses++;
+      else s.draws++;
+      if (topScorer && topScorer.name === row.name) s.boots++;
+    });
+  });
+  return Object.entries(allStats).sort((a, b) =>
+    b[1].goals - a[1].goals || b[1].wins - a[1].wins || b[1].played - a[1].played);
+}
+
 function metaLabel(entry, cfg) {
   if (cfg.engine === 'turnik-ladder') return `${cfg.icon} Турник`;
   if (cfg.engine === 'americano') return `${cfg.icon} Американо`;
+  if (cfg.engine === 'team-match-log') {
+    const [s1, s2] = getScores(entry);
+    return `${cfg.icon} ${s1} : ${s2}`;
+  }
   return FORMAT_LABEL[entry.format] || '🏆 Плей-офф';
 }
 
@@ -175,7 +206,7 @@ export default function HistoryList() {
   useEffect(() => { setPeriod('all'); }, [sportFilter]);
 
   async function handleReopen(entry) {
-    if (!confirm(`Вернуть турнир «${entry.name || 'Турнир'}» в игру и снять пометку "завершён"?`)) return;
+    if (!confirm(`Вернуть «${entry.name || 'Турнир'}» в работу и снять пометку "завершён"?`)) return;
     await reopenFinishedTournament(entry);
     load();
   }
@@ -196,11 +227,13 @@ export default function HistoryList() {
   const cfg = getSportConfig(sportFilter);
   const isTurnik = cfg.engine === 'turnik-ladder';
   const isAmericano = cfg.engine === 'americano';
+  const isTeamMatchLog = cfg.engine === 'team-match-log';
   const sportHistory = history.filter(entry => (entry.sport || FOOTBALL) === sportFilter);
   const { years, months } = buildPeriodOptions(sportHistory);
   const periodHistory = sportHistory.filter(entry => matchesPeriod(entry, period));
   const sortedStats = isTurnik ? aggregateLadderStats(periodHistory)
     : isAmericano ? aggregateAmericanoPairStats(periodHistory)
+    : isTeamMatchLog ? aggregateTeamMatchStats(periodHistory)
     : aggregateStats(periodHistory);
   const listDesc = periodHistory; // already sorted newest-first by listHistory()
   const totalPages = Math.max(1, Math.ceil(listDesc.length / PAGE_SIZE));
@@ -299,7 +332,35 @@ export default function HistoryList() {
             </div>
           )}
 
-          {!isTurnik && !isAmericano && sortedStats.length > 0 && (
+          {isTeamMatchLog && sortedStats.length > 0 && (
+            <div className="table-scroll">
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th>Игрок</th><th title="Сколько раз был лучшим бомбардиром матча">👟</th>
+                  <th>Матчей</th><th title="Голы">⚽</th>
+                  <th>✅</th><th>🤝</th><th>❌</th><th title="Голов за матч">⚽/М</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedStats.map(([name, s], i) => (
+                  <tr key={name}>
+                    <td>{i === 0 && s.goals > 0 ? '👟 ' : ''}{name}</td>
+                    <td className="td-gold">{s.boots}</td>
+                    <td>{s.played}</td>
+                    <td className="td-green">{s.goals}</td>
+                    <td className="td-green">{s.wins}</td>
+                    <td>{s.draws}</td>
+                    <td className="td-red">{s.losses}</td>
+                    <td>{s.played ? (s.goals / s.played).toFixed(2) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            </div>
+          )}
+
+          {!isTurnik && !isAmericano && !isTeamMatchLog && sortedStats.length > 0 && (
             <div className="table-scroll">
             <table className="stats-table">
               <thead>
@@ -345,8 +406,8 @@ export default function HistoryList() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <div className="history-item-winner">{entry.winner ? '🏆 ' + entry.winner : '—'}</div>
-                  <button className="btn btn-reset" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => setOpenEntry(entry)}>📊 Сетка</button>
+                  <div className="history-item-winner">{entry.winner ? `${entry.winner === DRAW_LABEL ? '🤝' : '🏆'} ${entry.winner}` : '—'}</div>
+                  <button className="btn btn-reset" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => setOpenEntry(entry)}>{isTeamMatchLog ? '📊 Матч' : '📊 Сетка'}</button>
                   <button className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => handleReopen(entry)}>↩️ Вернуть</button>
                 </div>
               </div>

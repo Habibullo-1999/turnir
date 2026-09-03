@@ -3,8 +3,10 @@ import StandingsTable from '../tournament/StandingsTable.jsx';
 import MatchCard from '../tournament/MatchCard.jsx';
 import TurnikLadder from '../tournament/TurnikLadder.jsx';
 import AmericanoBoard from '../tournament/AmericanoBoard.jsx';
+import TeamMatchBoard from '../tournament/TeamMatchBoard.jsx';
 import { computeGroupTours, computeLeagueTours } from '../../utils/groups.js';
 import { getSportConfig } from '../../utils/sportConfig.js';
+import { DRAW_LABEL } from '../../utils/teamMatchLog.js';
 
 export default function HistoryModal({ entry, onClose }) {
   const cfg = getSportConfig(entry.sport);
@@ -20,13 +22,14 @@ export default function HistoryModal({ entry, onClose }) {
         <div className="history-modal-header">
           <div>
             <div className="history-modal-title">{entry.name || 'Турнир'}</div>
-            <div className="history-modal-subtitle">{entry.date} · {(entry.players || []).length} {cfg.unitNoun} · 🏆 {entry.winner || '—'}</div>
+            <div className="history-modal-subtitle">{entry.date} · {(entry.players || []).length} {cfg.unitNoun} · {cfg.engine === 'team-match-log' && entry.winner === DRAW_LABEL ? '🤝' : '🏆'} {entry.winner || '—'}</div>
           </div>
           <button className="btn btn-secondary" onClick={onClose}>✕ Закрыть</button>
         </div>
 
         {cfg.engine === 'turnik-ladder' && <TurnikLadder tournament={entry} editable={false} />}
         {cfg.engine === 'americano' && <AmericanoBoard tournament={entry} editable={false} />}
+        {cfg.engine === 'team-match-log' && <TeamMatchBoard tournament={entry} editable={false} />}
 
         {isBracketGroup && groups.length > 0 && (
           <div className="history-modal-groups">
