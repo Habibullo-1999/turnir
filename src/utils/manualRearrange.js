@@ -79,10 +79,12 @@ export function movePlayerToGroup(draft, playerName, targetGroupIdx) {
   const target = draft.groups[targetGroupIdx];
 
   source.players = source.players.filter(p => p !== playerName);
+  source.tieBreakOrder = source.players.slice();
   source.matches = source.matches.filter(m => m.t1 !== playerName && m.t2 !== playerName);
 
   target.players.forEach(existing => {
     target.matches.push({ t1: existing, t2: playerName, score1: null, score2: null, played: false });
   });
   target.players.push(playerName);
+  target.tieBreakOrder = target.players.slice();
 }

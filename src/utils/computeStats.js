@@ -13,9 +13,16 @@ export function computeTournamentResult(tournament) {
     const finalMatch = tournament.rounds[tournament.rounds.length - 1][0];
     winner = finalMatch.winner && finalMatch.winner !== 'BYE' ? finalMatch.winner : null;
   } else if (tournament.groups && tournament.groups.length) {
-    const allStandings = tournament.groups.flatMap(g => calcStandings(g));
-    allStandings.sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.gf - a.gf);
-    winner = allStandings[0]?.name || null;
+    const groupStandings = tournament.groups.map(group => calcStandings(group));
+    if (groupStandings.length === 1) {
+      winner = groupStandings[0][0]?.name || null;
+    } else {
+      // Players from different groups have no head-to-head result, so only
+      // common overall statistics can be compared here.
+      const allStandings = groupStandings.flat();
+      allStandings.sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.gf - a.gf);
+      winner = allStandings[0]?.name || null;
+    }
   }
 
   const stats = {};
