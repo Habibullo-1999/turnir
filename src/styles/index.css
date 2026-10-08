@@ -287,6 +287,21 @@ textarea { min-height: 140px; line-height: 1.7; }
 .participant-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .participant-row .p-name { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.9rem; font-family: inherit; padding: 9px 12px; outline: none; }
 .participant-row .p-name:focus { border-color: var(--green-dim); box-shadow: 0 0 0 2px var(--green-glow); }
+.add-participant-form .participant-row { flex-wrap:wrap; }
+.add-participant-form .p-name, .add-participant-form .club-selector-wrap { flex-basis:180px; }
+.participant-add-error { margin-top:10px;color:var(--red);font-size:0.85rem; }
+.participant-management-list { display:flex;flex-direction:column;gap:8px; }
+.participant-management-row { display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border); }
+.participant-management-name { display:flex;flex:1;min-width:0;flex-direction:column;gap:4px;overflow-wrap:anywhere; }
+.participant-remove-btn { background:transparent;border:1px solid var(--red);border-radius:8px;color:var(--red);padding:7px 10px;cursor:pointer;font-family:inherit; }
+.participant-remove-btn:disabled { opacity:0.4;cursor:not-allowed; }
+.confirm-delete-dialog { margin:auto;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:16px;padding:28px 24px;width:calc(100% - 40px);max-width:420px;overflow-wrap:anywhere; }
+.confirm-delete-dialog::backdrop { background:rgba(10,14,10,0.92); }
+.confirm-delete-controls { display:flex;gap:10px;flex-wrap:wrap; }
+.confirm-delete-error { color:var(--red);font-size:0.85rem;margin-bottom:12px; }
+.tournament-list-actions { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+.tournament-delete-controls { display:flex;justify-content:flex-end;margin:16px 0; }
+.btn-danger { background:var(--red);color:white; }
 .club-selector-wrap { position: relative; flex: 1.2; min-width: 0; }
 .p-club { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.85rem; font-family: inherit; padding: 9px 12px; outline: none; }
 .p-club:focus { border-color: var(--green-dim); box-shadow: 0 0 0 2px var(--green-glow); }
@@ -339,6 +354,10 @@ textarea { min-height: 140px; line-height: 1.7; }
 .tml-field > span { font-size:0.7rem;color:var(--text-dim); }
 .tml-text-input { background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.82rem;font-family:inherit;padding:7px 10px;outline:none; }
 .tml-text-input:focus { border-color:var(--green-dim);box-shadow:0 0 0 2px var(--green-glow); }
+.tml-add-player { display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:16px; }
+.tml-add-player .tml-field { flex:1;min-width:min(180px,100%); }
+.tml-add-player .tml-text-input { width:100%; }
+.tml-add-error { width:100%;color:var(--red);font-size:0.85rem; }
 
 .tml-scoreboard { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:12px; }
 .tml-team-panel { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;transition:border-color .2s; }

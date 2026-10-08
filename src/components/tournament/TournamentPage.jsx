@@ -8,7 +8,10 @@ import EditScoreConfirmModal from './EditScoreConfirmModal.jsx';
 import TurnikLadder from './TurnikLadder.jsx';
 import AmericanoBoard from './AmericanoBoard.jsx';
 import TeamMatchBoard from './TeamMatchBoard.jsx';
+import AddParticipantForm from './AddParticipantForm.jsx';
+import ParticipantRemoval from './ParticipantRemoval.jsx';
 import SaveIndicator from '../SaveIndicator.jsx';
+import DeleteTournamentButton from '../DeleteTournamentButton.jsx';
 import { useTournament } from '../../context/TournamentContext.jsx';
 import {
   confirmBracketScore, confirmBracketPenalty, clearBracketMatch,
@@ -18,10 +21,12 @@ import { swapBracketSlots, movePlayerToGroup } from '../../utils/manualRearrange
 import { markPassed, markFailed, undoMark, advanceRound, reopenLadder } from '../../utils/ladderActions.js';
 import { confirmAmericanoScore, clearAmericanoScore } from '../../utils/americanoActions.js';
 import {
-  renameTeam, setScore, setPlayedAt, bumpGoal, movePlayer,
+  renameTeam, setScore, setPlayedAt, bumpGoal, movePlayer, addPlayer,
   reshuffleTeams, finishMatch, reopenMatch,
 } from '../../utils/teamMatchActions.js';
-import { getSportConfig } from '../../utils/sportConfig.js';
+import { FOOTBALL, getSportConfig } from '../../utils/sportConfig.js';
+import { addParticipant } from '../../utils/participantActions.js';
+import { removeParticipant } from '../../utils/removeParticipant.js';
 import { DRAW_LABEL, getScores, matchResult, pluralGoals } from '../../utils/teamMatchLog.js';
 
 // В «реальном футболе» нет чемпиона турнира — есть победитель одного матча
@@ -142,6 +147,23 @@ export default function TournamentPage({ onHome }) {
       setAdvanceError(err.message);
     }
   }
+  function handleAddPlayer(name, side) {
+    // Validate before the state updater so the form can display errors reliably.
+    addPlayer(structuredClone(tournament), name, side);
+    mutate(draft => addPlayer(draft, name, side));
+  }
+  function handleAddParticipant(participant) {
+    addParticipant(structuredClone(tournament), participant);
+    mutate(draft => addParticipant(draft, participant));
+  }
+  function handleRemoveParticipant(player) {
+    removeParticipant(structuredClone(tournament), player);
+    mutate(draft => removeParticipant(draft, player));
+    // Match indices and pairings may have changed after removing a participant.
+    setPenaltyCtx(null);
+    setEditCtx(null);
+    setAdvanceError(null);
+  }
   function confirmEdit() {
     if (!editCtx) return;
     if (editCtx.type === 'group') {
@@ -193,6 +215,7 @@ export default function TournamentPage({ onHome }) {
 
       {isAmericano && (
         <AmericanoBoard
+          key={tournament.players.length}
           tournament={tournament}
           editable={editable}
           onConfirm={handleAmericanoConfirm}
@@ -209,6 +232,7 @@ export default function TournamentPage({ onHome }) {
           onSetDate={ts => runTeamMatchAction(draft => setPlayedAt(draft, ts))}
           onBumpGoal={(side, player, delta) => runTeamMatchAction(draft => bumpGoal(draft, side, player, delta))}
           onMovePlayer={(player, toSide) => runTeamMatchAction(draft => movePlayer(draft, player, toSide))}
+          onAddPlayer={handleAddPlayer}
           onReshuffle={() => runTeamMatchAction(draft => reshuffleTeams(draft))}
           onFinish={() => runTeamMatchAction(draft => finishMatch(draft))}
         />
@@ -216,8 +240,12 @@ export default function TournamentPage({ onHome }) {
 
       {isBracketGroup && (
         <>
+          {editable && cfg.sport === FOOTBALL && (
+            <AddParticipantForm key={tournament.id} tournament={tournament} onAdd={handleAddParticipant} />
+          )}
           {isGroupFormat && (
             <GroupStage
+              key={tournament.players.length}
               tournament={tournament}
               editable={editable}
               onConfirmMatch={handleGroupConfirm}
@@ -229,6 +257,7 @@ export default function TournamentPage({ onHome }) {
 
           {tournament.rounds && tournament.rounds.length > 0 && (
             <Bracket
+              key={tournament.players.length}
               tournament={tournament}
               editable={editable}
               onConfirm={handleBracketConfirm}
@@ -250,6 +279,12 @@ export default function TournamentPage({ onHome }) {
           {...(isTeamMatchLog ? teamMatchBannerProps(tournament) : {})}
         />
       )}
+
+      {editable && <ParticipantRemoval key={tournament.id} tournament={tournament} onRemove={handleRemoveParticipant} />}
+
+      <div className="tournament-delete-controls">
+        <DeleteTournamentButton tournament={tournament} onDeleted={onHome} />
+      </div>
 
       {tournament.status === 'active' && <ShareCard tournamentId={tournament.id} />}
 

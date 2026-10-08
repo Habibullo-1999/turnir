@@ -5,6 +5,7 @@ import { buildLadderRanking } from '../../utils/ladder.js';
 import { DRAW_LABEL, computeMatchStats, getScores, matchResult, pluralPlayers } from '../../utils/teamMatchLog.js';
 import { SPORT_CONFIG, getSportConfig, FOOTBALL } from '../../utils/sportConfig.js';
 import HistoryModal from './HistoryModal.jsx';
+import DeleteTournamentButton from '../DeleteTournamentButton.jsx';
 
 const FORMAT_LABEL = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы+ПО', league: '🏅 Лига' };
 const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
@@ -409,6 +410,10 @@ export default function HistoryList() {
                   <div className="history-item-winner">{entry.winner ? `${entry.winner === DRAW_LABEL ? '🤝' : '🏆'} ${entry.winner}` : '—'}</div>
                   <button className="btn btn-reset" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => setOpenEntry(entry)}>{isTeamMatchLog ? '📊 Матч' : '📊 Сетка'}</button>
                   <button className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => handleReopen(entry)}>↩️ Вернуть</button>
+                  <DeleteTournamentButton tournament={entry} label="Удалить" onDeleted={() => {
+                    setHistory(prev => prev.filter(item => item.id !== entry.id));
+                    setOpenEntry(prev => prev?.id === entry.id ? null : prev);
+                  }} />
                 </div>
               </div>
             ))}

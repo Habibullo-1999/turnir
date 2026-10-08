@@ -14,6 +14,7 @@ function generateId() {
 // clobber each other. Callers still get the real result/error of their own
 // write; only the ordering is enforced.
 const writeLocks = new Map();
+const deletedIds = new Set();
 function serialize(id, fn) {
   const prior = writeLocks.get(id) || Promise.resolve();
   const run = prior.then(fn, fn);
@@ -32,7 +33,10 @@ export async function createTournament(payload) {
 // `tournament` must be the full object (Firebase PUT replaces the whole node).
 export function saveTournament(tournament) {
   const updated = { ...tournament, updatedAt: Date.now() };
-  return serialize(tournament.id, () => fbPut(`/tournaments/${tournament.id}`, updated)).then(() => updated);
+  return serialize(tournament.id, () => {
+    if (deletedIds.has(tournament.id)) throw new Error('Турнир уже удалён.');
+    return fbPut(`/tournaments/${tournament.id}`, updated);
+  }).then(() => updated);
 }
 
 export function finishTournament(tournament) {
@@ -74,13 +78,15 @@ export async function listHistory() {
   return all.filter(t => t.status === 'finished').sort((a, b) => sortKey(b) - sortKey(a));
 }
 
-// Deliberately the only place a delete can happen, and it refuses outright
-// unless the tournament is finished — there is no "force delete" escape
-// hatch anywhere else in the app. Server-side Firebase Security Rules
-// (see README) enforce the same rule so a modified client can't bypass it.
+// Serialize deletion with autosaves and reject late writes to prevent a
+// pending save from recreating the deleted tournament in this session.
 export async function deleteTournament(tournament) {
-  if (!tournament || tournament.status !== 'finished') {
-    throw new Error('Нельзя удалить незавершённый турнир.');
+  if (!tournament || typeof tournament.id !== 'string' || !tournament.id || /[.#$\[\]\/?%\\\u0000-\u001f\u007f]/.test(tournament.id)) {
+    throw new Error('Некорректный идентификатор турнира.');
   }
-  await fbDelete(`/tournaments/${tournament.id}`);
+  return serialize(tournament.id, async () => {
+    if (deletedIds.has(tournament.id)) return;
+    await fbDelete(`/tournaments/${tournament.id}`);
+    deletedIds.add(tournament.id);
+  });
 }

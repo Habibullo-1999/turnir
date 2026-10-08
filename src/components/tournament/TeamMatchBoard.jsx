@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   attributedGoals, computeMatchStats, dateInputValue, formatMatchDate, getGoals,
   getScores, getTeams, hasTeams, pluralGoals, pluralPlayers, timestampFromDateInput,
@@ -11,8 +11,11 @@ import {
 export default function TeamMatchBoard({
   tournament, editable,
   onRenameTeam = () => {}, onSetScore = () => {}, onSetDate = () => {}, onBumpGoal = () => {},
-  onMovePlayer = () => {}, onReshuffle = () => {}, onFinish = () => {},
+  onMovePlayer = () => {}, onReshuffle = () => {}, onFinish = () => {}, onAddPlayer = () => {},
 }) {
+  const [playerName, setPlayerName] = useState('');
+  const [teamSide, setTeamSide] = useState('');
+  const [addError, setAddError] = useState(null);
   const teams = getTeams(tournament);
   const [s1, s2] = getScores(tournament);
   const playedAt = tournament.playedAt || tournament.createdAt || Date.now();
@@ -21,6 +24,41 @@ export default function TeamMatchBoard({
   const split = hasTeams(tournament);
   const rows = computeMatchStats(tournament);
   const scorers = rows.filter(row => row.goals > 0);
+
+  function handleAddPlayer(event) {
+    event.preventDefault();
+    setAddError(null);
+    try {
+      onAddPlayer(playerName, teamSide === '' ? null : Number(teamSide));
+      setPlayerName('');
+    } catch (err) {
+      setAddError(err.message);
+    }
+  }
+
+  const addPlayerForm = canEdit && (
+    <form className="tml-add-player" onSubmit={handleAddPlayer}>
+      <label className="tml-field">
+        <span>Имя участника</span>
+        <input
+          className="tml-text-input"
+          type="text"
+          value={playerName}
+          onChange={event => setPlayerName(event.target.value)}
+          required
+        />
+      </label>
+      <label className="tml-field">
+        <span>Команда</span>
+        <select className="tml-text-input" value={teamSide} onChange={event => setTeamSide(event.target.value)} required>
+          <option value="" disabled>Выберите команду</option>
+          {teams.map((team, side) => <option key={side} value={side}>{team.name}</option>)}
+        </select>
+      </label>
+      <button type="submit" className="btn btn-secondary" disabled={!playerName.trim() || teamSide === ''}>+ Добавить участника</button>
+      {addError && <div className="tml-add-error" role="alert">{addError}</div>}
+    </form>
+  );
 
   if (!split) {
     return (
@@ -55,6 +93,8 @@ export default function TeamMatchBoard({
           <span className="tml-match-when">📅 {formatMatchDate(playedAt)}</span>
         )}
       </div>
+
+      {addPlayerForm}
 
       <div className="tml-scoreboard">
         {[0, 1].map(side => {

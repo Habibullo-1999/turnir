@@ -19,6 +19,23 @@ export function setPlayedAt(draft, ts) {
   draft.playedAt = ts;
 }
 
+export function addPlayer(draft, name, side) {
+  if (draft.status !== 'active') throw new Error('Сначала верните матч в работу.');
+  const player = name.trim();
+  if (!player) throw new Error('Введите имя участника.');
+  if (side !== 0 && side !== 1) throw new Error('Выберите команду.');
+
+  const teams = getTeams(draft);
+  const players = (Array.isArray(draft.players) ? draft.players : Object.values(draft.players || {})).filter(Boolean);
+  if (players.includes(player) || teams.some(team => team.players.includes(player))) {
+    throw new Error(`Участник «${player}» уже добавлен.`);
+  }
+
+  teams[side].players.push(player);
+  draft.players = [...players, player];
+  writeTeams(draft, teams);
+}
+
 export function renameTeam(draft, side, name) {
   const teams = getTeams(draft);
   teams[side] = { ...teams[side], name: name.trim() || teams[side].name };

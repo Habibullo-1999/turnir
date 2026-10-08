@@ -3,6 +3,7 @@ import { listActive } from '../../services/tournaments.js';
 import { useTournament } from '../../context/TournamentContext.jsx';
 import { getSportConfig, FOOTBALL } from '../../utils/sportConfig.js';
 import { getScores, getTeams, hasTeams } from '../../utils/teamMatchLog.js';
+import DeleteTournamentButton from '../DeleteTournamentButton.jsx';
 
 const FORMAT_LABEL = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы + Плей-офф', league: '🏅 Лига' };
 
@@ -63,7 +64,10 @@ export default function ActiveTournamentsList({ sport, onOpen }) {
                 })()}
               </div>
             </div>
-            <button className="pause-btn" onClick={() => handleContinue(t)}>▶ Продолжить</button>
+            <div className="tournament-list-actions">
+              <button className="pause-btn" onClick={() => handleContinue(t)}>▶ Продолжить</button>
+              <DeleteTournamentButton tournament={t} label="Удалить" onDeleted={() => setTournaments(prev => prev.filter(item => item.id !== t.id))} />
+            </div>
           </div>
         ))}
       </div>
