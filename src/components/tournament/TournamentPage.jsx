@@ -21,7 +21,7 @@ import { swapBracketSlots, movePlayerToGroup } from '../../utils/manualRearrange
 import { markPassed, markFailed, undoMark, advanceRound, reopenLadder } from '../../utils/ladderActions.js';
 import { confirmAmericanoScore, clearAmericanoScore } from '../../utils/americanoActions.js';
 import {
-  renameTeam, setScore, setPlayedAt, bumpGoal, movePlayer, addPlayer,
+  renameTeam, setScore, setPlayedAt, bumpGoal, bumpAssist, bumpOwnGoal, movePlayer, addPlayer,
   reshuffleTeams, finishMatch, reopenMatch,
 } from '../../utils/teamMatchActions.js';
 import { FOOTBALL, getSportConfig } from '../../utils/sportConfig.js';
@@ -231,6 +231,8 @@ export default function TournamentPage({ onHome }) {
           onSetScore={(side, value) => runTeamMatchAction(draft => setScore(draft, side, value))}
           onSetDate={ts => runTeamMatchAction(draft => setPlayedAt(draft, ts))}
           onBumpGoal={(side, player, delta) => runTeamMatchAction(draft => bumpGoal(draft, side, player, delta))}
+          onBumpAssist={(side, player, delta) => runTeamMatchAction(draft => bumpAssist(draft, side, player, delta))}
+          onBumpOwnGoal={(side, player, delta) => runTeamMatchAction(draft => bumpOwnGoal(draft, side, player, delta))}
           onMovePlayer={(player, toSide) => runTeamMatchAction(draft => movePlayer(draft, player, toSide))}
           onAddPlayer={handleAddPlayer}
           onReshuffle={() => runTeamMatchAction(draft => reshuffleTeams(draft))}

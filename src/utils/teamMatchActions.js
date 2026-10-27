@@ -1,4 +1,6 @@
-import { attributedGoals, buildTeams, getScores, getTeams, matchResult, validateMatch } from './teamMatchLog.js';
+import {
+  attributedAssists, buildTeams, creditedGoals, getScores, getTeams, matchResult, ownGoalsTotal, validateMatch,
+} from './teamMatchLog.js';
 
 // Мутаторы матча. Как и остальные *Actions.js — чистые функции над черновиком
 // (см. `mutate` в TournamentContext), бросают ошибку с текстом для
@@ -8,7 +10,9 @@ import { attributedGoals, buildTeams, getScores, getTeams, matchResult, validate
 // формы «добавить»: каждое нажатие уходит в сохранение, как отметки в турнике.
 
 function writeTeams(draft, teams) {
-  draft.teams = teams.map(team => ({ name: team.name, players: team.players, goals: team.goals }));
+  draft.teams = teams.map(team => ({
+    name: team.name, players: team.players, goals: team.goals, assists: team.assists, ownGoals: team.ownGoals,
+  }));
 }
 
 function writeScores(draft, scores) {
@@ -48,29 +52,54 @@ export function setScore(draft, side, value) {
   writeScores(draft, scores);
 }
 
-// Тап по автору гола — основной сценарий ввода, поэтому счёт дотягивается сам:
-// обычный матч вводится одними «+». Убавление снимает гол и со счёта, но
-// только если весь счёт был расписан по авторам (иначе там висят автоголы и
-// голы без автора, которые нельзя терять).
-export function bumpGoal(draft, side, player, delta) {
+// Меняет счётчик игрока (`goals` / `assists` / `ownGoals`), не уходя ниже 0.
+function bumpCounter(draft, side, player, field, delta) {
   const teams = getTeams(draft);
   const team = teams[side];
   if (!team.players.includes(player)) throw new Error('Игрок не в этой команде.');
-
-  const before = attributedGoals(team);
-  const next = Math.max(0, (team.goals[player] || 0) + delta);
-  const goals = { ...team.goals };
-  if (next > 0) goals[player] = next;
-  else delete goals[player];
-  teams[side] = { ...team, goals };
+  const next = Math.max(0, (Number(team[field][player]) || 0) + delta);
+  const counts = { ...team[field] };
+  if (next > 0) counts[player] = next;
+  else delete counts[player];
+  teams[side] = { ...team, [field]: counts };
   writeTeams(draft, teams);
+}
 
-  const after = attributedGoals(teams[side]);
+// Тап по автору гола — основной сценарий ввода, поэтому счёт дотягивается сам:
+// обычный матч вводится одними «+». Убавление снимает гол и со счёта, но
+// только если весь счёт был расписан поимённо (иначе там висят голы без
+// автора, которые нельзя терять).
+function bumpCredited(draft, scoreSide, change) {
+  const before = creditedGoals(draft, scoreSide);
+  change();
+  const after = creditedGoals(draft, scoreSide);
   const scores = getScores(draft);
-  if (after > scores[side] || scores[side] === before) {
-    scores[side] = after;
+  if (after > scores[scoreSide] || scores[scoreSide] === before) {
+    scores[scoreSide] = after;
     writeScores(draft, scores);
   }
+}
+
+export function bumpGoal(draft, side, player, delta) {
+  bumpCredited(draft, side, () => bumpCounter(draft, side, player, 'goals', delta));
+}
+
+// Автогол игрока стороны `side` идёт в счёт соперника.
+export function bumpOwnGoal(draft, side, player, delta) {
+  bumpCredited(draft, 1 - side, () => bumpCounter(draft, side, player, 'ownGoals', delta));
+}
+
+// Пас счёт не меняет. Пасов не может быть больше, чем голов команды, не
+// считая автоголов соперника — на них паса не бывает.
+export function bumpAssist(draft, side, player, delta) {
+  if (delta > 0) {
+    const teams = getTeams(draft);
+    const assistable = getScores(draft)[side] - ownGoalsTotal(teams[1 - side]);
+    if (attributedAssists(teams[side]) + delta > assistable) {
+      throw new Error('Пасов больше, чем голов команды — сначала добавьте гол.');
+    }
+  }
+  bumpCounter(draft, side, player, 'assists', delta);
 }
 
 export function movePlayer(draft, player, toSide) {
@@ -82,29 +111,43 @@ export function movePlayer(draft, player, toSide) {
     throw new Error(`«${teams[fromSide].name}» осталась бы без игроков.`);
   }
 
-  // Перевод — это исправление ошибки в составе, поэтому голы игрока уезжают
-  // вместе с ним И переносятся в счёте: у прежней команды столько же
-  // вычитается, у новой прибавляется. Голы без автора у прежней команды при
-  // этом не теряются — счёт не падает ниже того, что расписано.
-  const scored = teams[fromSide].goals[player] || 0;
-  const fromGoals = { ...teams[fromSide].goals };
-  delete fromGoals[player];
-  const toGoals = { ...teams[toSide].goals };
-  if (scored > 0) toGoals[player] = scored;
+  // Перевод — это исправление ошибки в составе, поэтому голы, пасы и
+  // автоголы игрока уезжают вместе с ним, а счёт пересчитывается: его голы
+  // переходят из счёта прежней команды в счёт новой, а автоголы — наоборот
+  // (раньше они шли новой команде как сопернику, теперь — прежней). Голы без
+  // автора при этом не теряются — счёт не падает ниже того, что расписано.
+  const from = teams[fromSide];
+  const to = teams[toSide];
+  const scored = Number(from.goals[player]) || 0;
+  const own = Number(from.ownGoals[player]) || 0;
+  const take = (map) => { const rest = { ...map }; delete rest[player]; return rest; };
+  const give = (map, n) => (n > 0 ? { ...map, [player]: n } : { ...map });
 
-  teams[fromSide] = { ...teams[fromSide], players: teams[fromSide].players.filter(p => p !== player), goals: fromGoals };
-  teams[toSide] = { ...teams[toSide], players: [...teams[toSide].players, player], goals: toGoals };
+  teams[fromSide] = {
+    ...from,
+    players: from.players.filter(p => p !== player),
+    goals: take(from.goals),
+    assists: take(from.assists),
+    ownGoals: take(from.ownGoals),
+  };
+  teams[toSide] = {
+    ...to,
+    players: [...to.players, player],
+    goals: give(to.goals, scored),
+    assists: give(to.assists, Number(from.assists[player]) || 0),
+    ownGoals: give(to.ownGoals, own),
+  };
   writeTeams(draft, teams);
 
   const scores = getScores(draft);
-  scores[fromSide] = Math.max(attributedGoals(teams[fromSide]), scores[fromSide] - scored);
-  scores[toSide] = Math.max(attributedGoals(teams[toSide]), scores[toSide] + scored);
+  scores[fromSide] = Math.max(creditedGoals(draft, fromSide), scores[fromSide] - scored + own);
+  scores[toSide] = Math.max(creditedGoals(draft, toSide), scores[toSide] + scored - own);
   writeScores(draft, scores);
 }
 
 // Пересобрать составы можно в любой момент, пока матч не завершён: он ещё не
-// сыгран (или переигрывается), и переписывать нечего — голы обнуляются вместе
-// с составами.
+// сыгран (или переигрывается), и переписывать нечего — голы, пасы и автоголы
+// обнуляются вместе с составами.
 export function reshuffleTeams(draft) {
   writeTeams(draft, buildTeams(draft.players, getTeams(draft)));
   writeScores(draft, [0, 0]);
