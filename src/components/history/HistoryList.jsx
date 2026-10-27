@@ -101,10 +101,16 @@ function aggregateAmericanoPairStats(history) {
   return Object.values(table).sort((a, b) => b.w - a.w || (b.pf - b.pa) - (a.pf - a.pa));
 }
 
-// «Реальный футбол»: сквозной личный зачёт по всем сыгранным матчам — сколько
-// человек забил и отдал, сколько сыграл, сколько выиграл и сколько раз был
-// лучшим бомбардиром и ассистентом матча. Пересчитывается из сырых матчей,
-// кеш `stats` не нужен.
+// Очки по футбольному стандарту: победа 3, ничья 1, поражение 0.
+const matchPoints = s => s.wins * 3 + s.draws;
+// Разница мячей команды игрока во всех его матчах.
+const goalDiff = s => s.gf - s.ga;
+
+// «Реальный футбол»: сквозной личный зачёт по всем сыгранным матчам — очки,
+// сколько человек забил и отдал, сколько сыграл и сколько раз был лучшим
+// бомбардиром и ассистентом матча. Порядок как в футбольной таблице: очки,
+// затем разница мячей, затем как в зачёте бомбардиров — голы, пасы и меньше
+// сыгранных матчей. Пересчитывается из сырых матчей, кеш `stats` не нужен.
 function aggregateTeamMatchStats(history) {
   const allStats = {};
   history.forEach(entry => {
@@ -129,13 +135,13 @@ function aggregateTeamMatchStats(history) {
       if (topAssist && topAssist.name === row.name) s.playmaker++;
     });
   });
-  const points = s => s.goals + s.assists;
-  return Object.entries(allStats).sort((a, b) =>
-    points(b[1]) - points(a[1]) || b[1].goals - a[1].goals || b[1].wins - a[1].wins || b[1].played - a[1].played);
+  return Object.entries(allStats).sort(([, a], [, b]) =>
+    matchPoints(b) - matchPoints(a) || goalDiff(b) - goalDiff(a)
+    || b.goals - a.goals || b.assists - a.assists || a.played - b.played);
 }
 
 // Лидер по показателю (голы/пасы) — для бейджей 👟 и 🅰️. Таблица отсортирована
-// по «Г+П», поэтому лидер не обязательно первая строка. При равенстве бейдж
+// по очкам, поэтому лидер не обязательно первая строка. При равенстве бейдж
 // получают все, у кого максимум.
 function leaderValue(sortedStats, key) {
   return sortedStats.reduce((max, [, s]) => Math.max(max, s[key]), 0);
@@ -358,7 +364,8 @@ export default function HistoryList() {
                   <th title="Сколько раз был лучшим ассистентом матча">🅰️</th>
                   <th>Матчей</th><th title="Голы">⚽</th><th title="Голевые пасы">Пасы</th>
                   <th title="Голы + пасы">Г+П</th><th title="Автоголы">АГ</th>
-                  <th>✅</th><th>🤝</th><th>❌</th><th title="Голов за матч">⚽/М</th>
+                  <th title="Разница мячей команды в матчах игрока">РМ</th>
+                  <th>✅</th><th>🤝</th><th>❌</th><th title="Очки: победа 3, ничья 1">Очки</th>
                 </tr>
               </thead>
               <tbody>
@@ -376,10 +383,13 @@ export default function HistoryList() {
                     <td>{s.assists}</td>
                     <td className="td-green">{s.goals + s.assists}</td>
                     <td className={s.ownGoals ? 'td-red' : ''}>{s.ownGoals}</td>
+                    <td className={goalDiff(s) > 0 ? 'td-green' : goalDiff(s) < 0 ? 'td-red' : ''}>
+                      {goalDiff(s) > 0 ? '+' : ''}{goalDiff(s)}
+                    </td>
                     <td className="td-green">{s.wins}</td>
                     <td>{s.draws}</td>
                     <td className="td-red">{s.losses}</td>
-                    <td>{s.played ? (s.goals / s.played).toFixed(2) : '—'}</td>
+                    <td className="td-gold"><b>{matchPoints(s)}</b></td>
                   </tr>
                 ))}
               </tbody>
