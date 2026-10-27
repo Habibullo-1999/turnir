@@ -2,9 +2,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { listHistory, reopenFinishedTournament } from '../../services/tournaments.js';
 import { computeTournamentResult } from '../../utils/computeStats.js';
 import { buildLadderRanking } from '../../utils/ladder.js';
+import { aggregateAmericanoPairStats } from '../../utils/americano.js';
 import { DRAW_LABEL, computeMatchStats, getScores, matchResult, pluralPlayers } from '../../utils/teamMatchLog.js';
 import { SPORT_CONFIG, getSportConfig, FOOTBALL } from '../../utils/sportConfig.js';
 import HistoryModal from './HistoryModal.jsx';
+import RecordsGrid from './RecordsGrid.jsx';
+import { computeRecords } from '../../utils/records.js';
 import DeleteTournamentButton from '../DeleteTournamentButton.jsx';
 
 const FORMAT_LABEL = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы+ПО', league: '🏅 Лига' };
@@ -65,40 +68,6 @@ function aggregateLadderStats(history) {
     });
   });
   return Object.entries(allStats).sort((a, b) => b[1].gold - a[1].gold || b[1].bestRound - a[1].bestRound);
-}
-
-// Партнёры в «Американо» меняются каждый раунд, поэтому нет смысла в личном
-// зачёте между турнирами — вместо этого считаем, как сыгрались конкретные
-// пары (по всем раундам всех турниров этого вида спорта), не только личный
-// счёт каждого игрока в TurnikLadder/AmericanoBoard.
-function pairKey(pair) {
-  return pair.slice().sort((a, b) => a.localeCompare(b, 'ru')).join(' & ');
-}
-
-function creditPair(table, pair, pf, pa) {
-  if (pair.length < 2) return; // сольная сторона матча 1×2 — тут нет пары
-  const key = pairKey(pair);
-  if (!table[key]) table[key] = { members: pair.slice().sort((a, b) => a.localeCompare(b, 'ru')), played: 0, w: 0, l: 0, pf: 0, pa: 0 };
-  const s = table[key];
-  s.played++;
-  s.pf += pf;
-  s.pa += pa;
-  if (pf > pa) s.w++;
-  else if (pa > pf) s.l++;
-}
-
-function aggregateAmericanoPairStats(history) {
-  const table = {};
-  history.forEach(entry => {
-    (entry.rounds || []).forEach(round => {
-      round.matches.forEach(m => {
-        if (!m.played) return;
-        creditPair(table, m.pairA, m.score1, m.score2);
-        creditPair(table, m.pairB, m.score2, m.score1);
-      });
-    });
-  });
-  return Object.values(table).sort((a, b) => b.w - a.w || (b.pf - b.pa) - (a.pf - a.pa));
 }
 
 // Очки по футбольному стандарту: победа 3, ничья 1, поражение 0.
@@ -253,6 +222,7 @@ export default function HistoryList() {
     : isAmericano ? aggregateAmericanoPairStats(periodHistory)
     : isTeamMatchLog ? aggregateTeamMatchStats(periodHistory)
     : aggregateStats(periodHistory);
+  const records = computeRecords(periodHistory, cfg);
   const topGoals = isTeamMatchLog ? leaderValue(sortedStats, 'goals') : 0;
   const topAssists = isTeamMatchLog ? leaderValue(sortedStats, 'assists') : 0;
   const listDesc = periodHistory; // already sorted newest-first by listHistory()
@@ -300,6 +270,8 @@ export default function HistoryList() {
         <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>Нет завершённых турниров за этот период.</div>
       ) : (
         <>
+          <RecordsGrid records={records} />
+
           {isTurnik && sortedStats.length > 0 && (
             <div className="table-scroll">
             <table className="stats-table">
