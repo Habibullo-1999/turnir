@@ -26,6 +26,8 @@ export function getTeams(match) {
     name: list[side]?.name || DEFAULT_TEAM_NAMES[side],
     players: toList(list[side]?.players),
     goals: list[side]?.goals || {},
+    assists: list[side]?.assists || {},
+    ownGoals: list[side]?.ownGoals || {},
   }));
 }
 
@@ -35,12 +37,28 @@ export function hasTeams(match) {
   return getTeams(match).some(team => team.players.length > 0);
 }
 
-export function getGoals(team) {
-  const goals = team?.goals;
-  if (!goals) return [];
-  return Object.entries(goals)
+function countEntries(map) {
+  if (!map) return [];
+  return Object.entries(map)
     .filter(([name, count]) => name && count > 0)
     .map(([name, count]) => ({ name, count }));
+}
+
+function sumCounts(map) {
+  return countEntries(map).reduce((sum, g) => sum + g.count, 0);
+}
+
+export function getGoals(team) {
+  return countEntries(team?.goals);
+}
+
+export function getAssists(team) {
+  return countEntries(team?.assists);
+}
+
+// Автоголы хранятся у команды того, кто ошибся, а засчитываются сопернику.
+export function getOwnGoals(team) {
+  return countEntries(team?.ownGoals);
 }
 
 // Намеренно НЕ через toList: тот отбрасывает falsy-элементы, а в счёте 0 —
@@ -52,7 +70,22 @@ export function getScores(match) {
 }
 
 export function attributedGoals(team) {
-  return getGoals(team).reduce((sum, g) => sum + g.count, 0);
+  return sumCounts(team?.goals);
+}
+
+export function attributedAssists(team) {
+  return sumCounts(team?.assists);
+}
+
+export function ownGoalsTotal(team) {
+  return sumCounts(team?.ownGoals);
+}
+
+// Сколько голов в счёте стороны известно поимённо: голы её игроков плюс
+// автоголы соперника. Остаток счёта — голы без автора.
+export function creditedGoals(match, side) {
+  const teams = getTeams(match);
+  return attributedGoals(teams[side]) + ownGoalsTotal(teams[1 - side]);
 }
 
 export function totalGoals(match) {
@@ -75,12 +108,16 @@ export function buildTeams(players, previousTeams = []) {
     name: previousTeams[side]?.name || DEFAULT_TEAM_NAMES[side],
     players: roster,
     goals: {},
+    assists: {},
+    ownGoals: {},
   }));
 }
 
-// Голов у авторов может быть МЕНЬШЕ счёта команды — это не ошибка: автоголы и
-// «никто не помнит, кто забил» в дворовом футболе обычное дело. Больше счёта —
-// уже ошибка ввода, и с ней матч нельзя завершить.
+// Расписанных голов (свои + автоголы соперника) может быть МЕНЬШЕ счёта
+// команды — это не ошибка: «никто не помнит, кто забил» в дворовом футболе
+// обычное дело. Больше счёта — уже ошибка ввода, и с ней матч нельзя
+// завершить. То же с пасами: на автогол паса не бывает, поэтому пасов не
+// больше, чем голов команды без автоголов соперника.
 export function validateMatch(match) {
   const teams = getTeams(match);
   if (!teams[0].players.length || !teams[1].players.length) {
@@ -93,9 +130,14 @@ export function validateMatch(match) {
   const scores = getScores(match);
   for (let side = 0; side < 2; side++) {
     if (!Number.isInteger(rawScores[side]) || rawScores[side] < 0) return 'Счёт должен быть целым числом от 0.';
-    const attributed = attributedGoals(teams[side]);
-    if (attributed > scores[side]) {
-      return `«${teams[side].name}»: у игроков расписано ${pluralGoals(attributed)}, а команда забила ${scores[side]}.`;
+    const credited = creditedGoals(match, side);
+    if (credited > scores[side]) {
+      return `«${teams[side].name}»: расписано ${pluralGoals(credited)}, а команда забила ${scores[side]}.`;
+    }
+    const assists = attributedAssists(teams[side]);
+    const assistable = scores[side] - ownGoalsTotal(teams[1 - side]);
+    if (assists > assistable) {
+      return `«${teams[side].name}»: расписано ${pluralAssists(assists)}, а голов без автоголов соперника ${assistable}.`;
     }
   }
   return null;
@@ -110,13 +152,14 @@ export function computeMatchStats(match) {
   teams.forEach((team, side) => {
     const own = side === 0 ? s1 : s2;
     const opp = side === 0 ? s2 : s1;
-    const goals = getGoals(team).reduce((acc, g) => ({ ...acc, [g.name]: g.count }), {});
     team.players.forEach(player => {
       rows.push({
         name: player,
         team: team.name,
         teamSide: side,
-        goals: goals[player] || 0,
+        goals: Number(team.goals[player]) || 0,
+        assists: Number(team.assists[player]) || 0,
+        ownGoals: Number(team.ownGoals[player]) || 0,
         gf: own,
         ga: opp,
         result: own > opp ? 'win' : own < opp ? 'loss' : 'draw',
@@ -133,10 +176,12 @@ export function matchResult(match) {
   const draw = s1 === s2;
   const rows = computeMatchStats(match);
   const top = rows[0];
+  const topAssist = [...rows].sort((a, b) => b.assists - a.assists || a.name.localeCompare(b.name, 'ru'))[0];
   return {
     winner: draw ? DRAW_LABEL : (s1 > s2 ? teams[0].name : teams[1].name),
     draw,
     topScorer: top && top.goals > 0 ? top : null,
+    topAssist: topAssist && topAssist.assists > 0 ? topAssist : null,
   };
 }
 
@@ -147,6 +192,15 @@ export function pluralGoals(n) {
   if (mod10 === 1) return `${n} гол`;
   if (mod10 >= 2 && mod10 <= 4) return `${n} гола`;
   return `${n} голов`;
+}
+
+export function pluralAssists(n) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return `${n} пасов`;
+  if (mod10 === 1) return `${n} пас`;
+  if (mod10 >= 2 && mod10 <= 4) return `${n} паса`;
+  return `${n} пасов`;
 }
 
 export function pluralPlayers(n) {

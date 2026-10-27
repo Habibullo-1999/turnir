@@ -102,29 +102,43 @@ function aggregateAmericanoPairStats(history) {
 }
 
 // «Реальный футбол»: сквозной личный зачёт по всем сыгранным матчам — сколько
-// человек забил, сколько сыграл, сколько выиграл и сколько раз был лучшим
-// бомбардиром матча. Пересчитывается из сырых матчей, кеш `stats` не нужен.
+// человек забил и отдал, сколько сыграл, сколько выиграл и сколько раз был
+// лучшим бомбардиром и ассистентом матча. Пересчитывается из сырых матчей,
+// кеш `stats` не нужен.
 function aggregateTeamMatchStats(history) {
   const allStats = {};
   history.forEach(entry => {
-    const topScorer = matchResult(entry).topScorer;
+    const { topScorer, topAssist } = matchResult(entry);
     computeMatchStats(entry).forEach(row => {
       if (!allStats[row.name]) {
-        allStats[row.name] = { played: 0, goals: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, boots: 0 };
+        allStats[row.name] = {
+          played: 0, goals: 0, assists: 0, ownGoals: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, boots: 0, playmaker: 0,
+        };
       }
       const s = allStats[row.name];
       s.played++;
       s.goals += row.goals;
+      s.assists += row.assists;
+      s.ownGoals += row.ownGoals;
       s.gf += row.gf;
       s.ga += row.ga;
       if (row.result === 'win') s.wins++;
       else if (row.result === 'loss') s.losses++;
       else s.draws++;
       if (topScorer && topScorer.name === row.name) s.boots++;
+      if (topAssist && topAssist.name === row.name) s.playmaker++;
     });
   });
+  const points = s => s.goals + s.assists;
   return Object.entries(allStats).sort((a, b) =>
-    b[1].goals - a[1].goals || b[1].wins - a[1].wins || b[1].played - a[1].played);
+    points(b[1]) - points(a[1]) || b[1].goals - a[1].goals || b[1].wins - a[1].wins || b[1].played - a[1].played);
+}
+
+// Лидер по показателю (голы/пасы) — для бейджей 👟 и 🅰️. Таблица отсортирована
+// по «Г+П», поэтому лидер не обязательно первая строка. При равенстве бейдж
+// получают все, у кого максимум.
+function leaderValue(sortedStats, key) {
+  return sortedStats.reduce((max, [, s]) => Math.max(max, s[key]), 0);
 }
 
 function metaLabel(entry, cfg) {
@@ -236,6 +250,8 @@ export default function HistoryList() {
     : isAmericano ? aggregateAmericanoPairStats(periodHistory)
     : isTeamMatchLog ? aggregateTeamMatchStats(periodHistory)
     : aggregateStats(periodHistory);
+  const topGoals = isTeamMatchLog ? leaderValue(sortedStats, 'goals') : 0;
+  const topAssists = isTeamMatchLog ? leaderValue(sortedStats, 'assists') : 0;
   const listDesc = periodHistory; // already sorted newest-first by listHistory()
   const totalPages = Math.max(1, Math.ceil(listDesc.length / PAGE_SIZE));
   const pageItems = listDesc.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -339,17 +355,27 @@ export default function HistoryList() {
               <thead>
                 <tr>
                   <th>Игрок</th><th title="Сколько раз был лучшим бомбардиром матча">👟</th>
-                  <th>Матчей</th><th title="Голы">⚽</th>
+                  <th title="Сколько раз был лучшим ассистентом матча">🅰️</th>
+                  <th>Матчей</th><th title="Голы">⚽</th><th title="Голевые пасы">Пасы</th>
+                  <th title="Голы + пасы">Г+П</th><th title="Автоголы">АГ</th>
                   <th>✅</th><th>🤝</th><th>❌</th><th title="Голов за матч">⚽/М</th>
                 </tr>
               </thead>
               <tbody>
-                {sortedStats.map(([name, s], i) => (
+                {sortedStats.map(([name, s]) => (
                   <tr key={name}>
-                    <td>{i === 0 && s.goals > 0 ? '👟 ' : ''}{name}</td>
+                    <td>
+                      {topGoals > 0 && s.goals === topGoals ? '👟 ' : ''}
+                      {topAssists > 0 && s.assists === topAssists ? '🅰️ ' : ''}
+                      {name}
+                    </td>
                     <td className="td-gold">{s.boots}</td>
+                    <td className="td-gold">{s.playmaker}</td>
                     <td>{s.played}</td>
                     <td className="td-green">{s.goals}</td>
+                    <td>{s.assists}</td>
+                    <td className="td-green">{s.goals + s.assists}</td>
+                    <td className={s.ownGoals ? 'td-red' : ''}>{s.ownGoals}</td>
                     <td className="td-green">{s.wins}</td>
                     <td>{s.draws}</td>
                     <td className="td-red">{s.losses}</td>

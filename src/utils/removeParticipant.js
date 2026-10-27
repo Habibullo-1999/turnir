@@ -2,7 +2,7 @@ import { buildRounds, isRealMatch, propagateWinners } from './bracket.js';
 import { buildAmericanoRounds } from './americano.js';
 import { computeTournamentResult, isTournamentComplete } from './computeStats.js';
 import { computeLadderResult, isLadderComplete } from './ladder.js';
-import { attributedGoals, getScores, getTeams } from './teamMatchLog.js';
+import { creditedGoals, getScores, getTeams } from './teamMatchLog.js';
 import { getSportConfig } from './sportConfig.js';
 
 function playerList(tournament) {
@@ -31,7 +31,7 @@ export function getParticipantRemovalError(tournament, player) {
 export function participantRemovalDescription(tournament) {
   switch (getSportConfig(tournament.sport).engine) {
     case 'team-match-log':
-      return 'Участник и его голы будут удалены. Счёт команды уменьшится на количество его голов.';
+      return 'Участник и его голы, пасы и автоголы будут удалены. Счёт команды уменьшится на его голы, а счёт соперника — на его автоголы.';
     case 'americano':
       return 'Расписание Американо будет сформировано заново. Все результаты матчей будут сброшены.';
     case 'turnik-ladder':
@@ -76,15 +76,25 @@ export function removeParticipant(draft, player) {
   if (engine === 'team-match-log') {
     const teams = getTeams(draft);
     const scores = getScores(draft);
-    teams.forEach((team, side) => {
-      if (!team.players.includes(player)) return;
-      const goals = { ...team.goals };
-      const removedGoals = Number(goals[player]) || 0;
-      delete goals[player];
-      teams[side] = { ...team, players: team.players.filter(name => name !== player), goals };
-      scores[side] = Math.max(attributedGoals(teams[side]), scores[side] - removedGoals);
-    });
-    draft.teams = teams;
+    const side = teams.findIndex(team => team.players.includes(player));
+    if (side >= 0) {
+      const team = teams[side];
+      const removedGoals = Number(team.goals[player]) || 0;
+      const removedOwnGoals = Number(team.ownGoals[player]) || 0;
+      const without = (map) => { const rest = { ...map }; delete rest[player]; return rest; };
+      teams[side] = {
+        ...team,
+        players: team.players.filter(name => name !== player),
+        goals: without(team.goals),
+        assists: without(team.assists),
+        ownGoals: without(team.ownGoals),
+      };
+      draft.teams = teams;
+      scores[side] = Math.max(creditedGoals(draft, side), scores[side] - removedGoals);
+      scores[1 - side] = Math.max(creditedGoals(draft, 1 - side), scores[1 - side] - removedOwnGoals);
+    } else {
+      draft.teams = teams;
+    }
     draft.scores = scores;
   } else if (engine === 'americano') {
     draft.rounds = buildAmericanoRounds(draft.players);
