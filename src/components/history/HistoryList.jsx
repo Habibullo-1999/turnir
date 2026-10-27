@@ -103,14 +103,11 @@ function aggregateAmericanoPairStats(history) {
 
 // Очки по футбольному стандарту: победа 3, ничья 1, поражение 0.
 const matchPoints = s => s.wins * 3 + s.draws;
-// Разница мячей команды игрока во всех его матчах.
-const goalDiff = s => s.gf - s.ga;
 
 // «Реальный футбол»: сквозной личный зачёт по всем сыгранным матчам — очки,
 // сколько человек забил и отдал, сколько сыграл и сколько раз был лучшим
-// бомбардиром и ассистентом матча. Порядок как в футбольной таблице: очки,
-// затем разница мячей, затем как в зачёте бомбардиров — голы, пасы и меньше
-// сыгранных матчей. Пересчитывается из сырых матчей, кеш `stats` не нужен.
+// бомбардиром и ассистентом матча. Порядок: очки, затем как в зачёте
+// бомбардиров — голы, пасы и меньше сыгранных матчей. Пересчитывается из сырых матчей, кеш `stats` не нужен.
 function aggregateTeamMatchStats(history) {
   const allStats = {};
   history.forEach(entry => {
@@ -136,7 +133,7 @@ function aggregateTeamMatchStats(history) {
     });
   });
   return Object.entries(allStats).sort(([, a], [, b]) =>
-    matchPoints(b) - matchPoints(a) || goalDiff(b) - goalDiff(a)
+    matchPoints(b) - matchPoints(a)
     || b.goals - a.goals || b.assists - a.assists || a.played - b.played);
 }
 
@@ -364,7 +361,6 @@ export default function HistoryList() {
                   <th title="Сколько раз был лучшим ассистентом матча">🅰️</th>
                   <th>Матчей</th><th title="Голы">⚽</th><th title="Голевые пасы">Пасы</th>
                   <th title="Голы + пасы">Г+П</th><th title="Автоголы">АГ</th>
-                  <th title="Разница мячей команды в матчах игрока">РМ</th>
                   <th>✅</th><th>🤝</th><th>❌</th><th title="Очки: победа 3, ничья 1">Очки</th>
                 </tr>
               </thead>
@@ -383,9 +379,6 @@ export default function HistoryList() {
                     <td>{s.assists}</td>
                     <td className="td-green">{s.goals + s.assists}</td>
                     <td className={s.ownGoals ? 'td-red' : ''}>{s.ownGoals}</td>
-                    <td className={goalDiff(s) > 0 ? 'td-green' : goalDiff(s) < 0 ? 'td-red' : ''}>
-                      {goalDiff(s) > 0 ? '+' : ''}{goalDiff(s)}
-                    </td>
                     <td className="td-green">{s.wins}</td>
                     <td>{s.draws}</td>
                     <td className="td-red">{s.losses}</td>
