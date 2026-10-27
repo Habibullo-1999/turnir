@@ -88,3 +88,37 @@ export function computeAmericanoResult(tournament) {
   const standings = calcAmericanoStandings(tournament);
   return { winner: standings[0]?.name || null, standings };
 }
+
+// Партнёры в «Американо» меняются каждый раунд, поэтому нет смысла в личном
+// зачёте между турнирами — вместо этого считаем, как сыгрались конкретные
+// пары (по всем раундам всех турниров этого вида спорта), не только личный
+// счёт каждого игрока в TurnikLadder/AmericanoBoard.
+function pairKey(pair) {
+  return pair.slice().sort((a, b) => a.localeCompare(b, 'ru')).join(' & ');
+}
+
+function creditPair(table, pair, pf, pa) {
+  if (pair.length < 2) return; // сольная сторона матча 1×2 — тут нет пары
+  const key = pairKey(pair);
+  if (!table[key]) table[key] = { members: pair.slice().sort((a, b) => a.localeCompare(b, 'ru')), played: 0, w: 0, l: 0, pf: 0, pa: 0 };
+  const s = table[key];
+  s.played++;
+  s.pf += pf;
+  s.pa += pa;
+  if (pf > pa) s.w++;
+  else if (pa > pf) s.l++;
+}
+
+export function aggregateAmericanoPairStats(history) {
+  const table = {};
+  history.forEach(entry => {
+    (entry.rounds || []).forEach(round => {
+      round.matches.forEach(m => {
+        if (!m.played) return;
+        creditPair(table, m.pairA, m.score1, m.score2);
+        creditPair(table, m.pairB, m.score2, m.score1);
+      });
+    });
+  });
+  return Object.values(table).sort((a, b) => b.w - a.w || (b.pf - b.pa) - (a.pf - a.pa));
+}

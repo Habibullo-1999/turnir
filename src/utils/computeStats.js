@@ -70,3 +70,25 @@ export function isTournamentComplete(tournament) {
   if (tournament.format === 'group+playoff') return false; // waiting on advanceToPlayoff
   return (tournament.groups || []).length > 0 && tournament.groups.every(g => g.matches.every(m => m.played));
 }
+
+// Все сыгранные матчи турнира в порядке игры (группы, затем плей-офф) с теми
+// же правилами пропуска, что и в computeTournamentResult: BYE и матчи без
+// счёта не считаются. `winner` — null для ничьей в группе; `penalties` —
+// матч решён серией пенальти.
+export function playedMatches(tournament) {
+  const matches = [];
+  (tournament.groups || []).forEach(group => {
+    (group.matches || []).forEach(m => {
+      if (!m.played || m.score1 == null) return;
+      const winner = m.score1 > m.score2 ? m.t1 : m.score2 > m.score1 ? m.t2 : null;
+      matches.push({ t1: m.t1, t2: m.t2, score1: m.score1, score2: m.score2, winner, penalties: false });
+    });
+  });
+  (tournament.rounds || []).forEach(round => {
+    round.forEach(m => {
+      if (!m.winner || m.t1 === 'BYE' || m.t2 === 'BYE' || m.score1 == null) return;
+      matches.push({ t1: m.t1, t2: m.t2, score1: m.score1, score2: m.score2, winner: m.winner, penalties: m.pen1 != null && m.pen2 != null });
+    });
+  });
+  return matches;
+}
