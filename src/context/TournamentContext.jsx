@@ -1,5 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { createTournament as createTournamentApi, getTournament, saveTournament } from '../services/tournaments.js';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createTournament as createTournamentApi, getTournament, updateTournament } from '../services/tournaments.js';
 
 const TournamentContext = createContext(null);
 
@@ -14,20 +14,18 @@ export function TournamentProvider({ children }) {
   const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
   const [saveError, setSaveError] = useState(null);
 
-  // Persist on every change. Effect-driven (not a side effect inside
-  // setState) so it always sees the real, awaited result and never races
-  // with itself — the per-id write lock in services/tournaments.js also
-  // guarantees ordering even if this fires twice in a row.
-  useEffect(() => {
-    if (!tournament) return;
-    let cancelled = false;
-    setSaveStatus('saving');
-    saveTournament(tournament)
-      .then(() => { if (!cancelled) { setSaveStatus('saved'); setSaveError(null); } })
-      .catch(err => { if (!cancelled) { setSaveStatus('error'); setSaveError(err.message); } });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournament]);
+  // Mirrors `tournament` synchronously so back-to-back mutations each build
+  // on the previous one, and counts saves still in flight so the server's
+  // answer only replaces the optimistic state once nothing newer is pending.
+  const currentRef = useRef(null);
+  const pendingRef = useRef(0);
+  const sessionRef = useRef(0);
+  const commit = (t) => {
+    currentRef.current = t;
+    pendingRef.current = 0;
+    sessionRef.current += 1;
+    setTournament(t);
+  };
 
   // Keeps `?tid=` in the URL pointed at the open tournament so a page
   // refresh can reopen the same one (see the mount effect below). Only ever
@@ -61,7 +59,7 @@ export function TournamentProvider({ children }) {
 
   const startTournament = useCallback(async (payload) => {
     const created = await createTournamentApi(payload);
-    setTournament(created);
+    commit(created);
     return created;
   }, []);
 
@@ -76,14 +74,16 @@ export function TournamentProvider({ children }) {
       const found = await getTournament(id);
       if (!found) {
         setOpenError('Турнир не найден.');
-        setTournament(null);
+        commit(null);
         clearTidParam();
       } else {
-        setTournament(found);
+        commit(found);
+        setSaveStatus('idle');
+        setSaveError(null);
       }
     } catch (err) {
       setOpenError(`Не удалось загрузить турнир: ${err.message}`);
-      setTournament(null);
+      commit(null);
       clearTidParam();
     } finally {
       setOpening(false);
@@ -91,19 +91,42 @@ export function TournamentProvider({ children }) {
   }, []);
 
   // Applies a pure mutation to a deep copy of the current tournament and
-  // commits it as the new current tournament (triggers the persistence
-  // effect above).
+  // shows it immediately, then saves it via updateTournament, which re-applies
+  // the same mutation on top of the latest server version if someone else
+  // changed the tournament meanwhile. A mutator that throws does so
+  // synchronously here, before anything is shown or saved.
   const mutate = useCallback((mutator) => {
-    setTournament(prev => {
-      if (!prev) return prev;
-      const draft = structuredClone(prev);
-      mutator(draft);
-      return draft;
-    });
+    const current = currentRef.current;
+    if (!current) return;
+    const draft = structuredClone(current);
+    mutator(draft);
+    currentRef.current = draft;
+    setTournament(draft);
+
+    const session = sessionRef.current;
+    pendingRef.current += 1;
+    setSaveStatus('saving');
+    updateTournament(current.id, mutator)
+      .then(saved => {
+        if (sessionRef.current !== session) return;
+        pendingRef.current -= 1;
+        setSaveError(null);
+        if (pendingRef.current === 0) {
+          currentRef.current = saved;
+          setTournament(saved);
+          setSaveStatus('saved');
+        }
+      })
+      .catch(err => {
+        if (sessionRef.current !== session) return;
+        pendingRef.current -= 1;
+        setSaveStatus('error');
+        setSaveError(err.message);
+      });
   }, []);
 
   const closeTournament = useCallback(() => {
-    setTournament(null);
+    commit(null);
     setOpenError(null);
     clearTidParam();
   }, []);
