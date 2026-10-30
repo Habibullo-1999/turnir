@@ -57,7 +57,7 @@ export default function ActiveTournamentsList({ sport, onOpen }) {
                 {(() => {
                   const tCfg = getSportConfig(t.sport);
                   const label = tCfg.engine === 'turnik-ladder' ? `🔝 Раунд ${t.round || 1}`
-                    : tCfg.engine === 'americano' ? `${tCfg.icon} Американо`
+                    : tCfg.engine === 'americano' ? `${tCfg.icon} ${t.format === 'league' ? 'Лига · дома и в гостях' : 'Американо'}`
                     : tCfg.engine === 'team-match-log' ? `${tCfg.icon} ${hasTeams(t) ? `${getTeams(t)[0].name} ${getScores(t)[0]} : ${getScores(t)[1]} ${getTeams(t)[1].name}` : 'команды не разделены'}`
                     : (FORMAT_LABEL[t.format] || t.format || '');
                   return `${label} · ${(t.players || []).length} ${tCfg.unitNoun}`;

@@ -14,8 +14,9 @@ export function getParticipantRemovalError(tournament, player) {
   if (tournament.status !== 'active') return 'Сначала верните турнир в работу.';
   const players = playerList(tournament);
   if (!players.includes(player)) return 'Участник не найден.';
-  const engine = getSportConfig(tournament.sport).engine;
-  const minimum = engine === 'americano' ? 3 : 2;
+  const cfg = getSportConfig(tournament.sport);
+  const engine = cfg.engine;
+  const minimum = cfg.minParticipants || (engine === 'americano' ? 3 : 2);
   if (players.length <= minimum) return `В турнире должно остаться минимум ${minimum} участника.`;
   if (engine === 'team-match-log') {
     const team = getTeams(tournament).find(team => team.players.includes(player));
@@ -97,7 +98,11 @@ export function removeParticipant(draft, player) {
     }
     draft.scores = scores;
   } else if (engine === 'americano') {
-    draft.rounds = buildAmericanoRounds(draft.players);
+    const cfg = getSportConfig(draft.sport);
+    draft.rounds = buildAmericanoRounds(draft.players, {
+      allowUnevenTeams: cfg.allowUnevenTeams,
+      double: draft.format === 'league' && cfg.doubleRoundRobinLeague,
+    });
   } else if (engine === 'bracket-group') {
     (draft.groups || []).forEach(group => {
       group.players = group.players.filter(name => name !== player);

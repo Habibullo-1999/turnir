@@ -7,13 +7,14 @@ const FORMATS = [
   { fmt: 'league', label: '🏅 Лига' },
 ];
 
-export default function FormatPicker({ value, onChange }) {
+export default function FormatPicker({ value, onChange, options = FORMATS }) {
   return (
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-      {FORMATS.map(({ fmt, label }) => (
+      {options.map(({ fmt, label }) => (
         <button
           key={fmt}
           type="button"
+          aria-pressed={value === fmt}
           className={'format-btn' + (value === fmt ? ' active' : '')}
           onClick={() => onChange(fmt)}
         >

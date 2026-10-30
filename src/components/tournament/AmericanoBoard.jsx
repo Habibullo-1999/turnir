@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { calcAmericanoStandings } from '../../utils/americano.js';
+import { getSportConfig } from '../../utils/sportConfig.js';
 
 function pairName(pair) {
   return pair.join(' / ');
 }
 
-function AmericanoMatch({ match, editable, onConfirm, onEdit }) {
+function AmericanoMatch({ match, editable, hasDraws, onConfirm, onEdit }) {
   const [s1, setS1] = useState('');
   const [s2, setS2] = useState('');
   const [error, setError] = useState(null);
@@ -14,7 +15,7 @@ function AmericanoMatch({ match, editable, onConfirm, onEdit }) {
     const p1 = parseInt(s1 || '0', 10);
     const p2 = parseInt(s2 || '0', 10);
     if (Number.isNaN(p1) || Number.isNaN(p2)) { setError('Введите корректный счёт.'); return; }
-    if (p1 === p2) { setError('Ничья невозможна — введите разные значения.'); return; }
+    if (!hasDraws && p1 === p2) { setError('Ничья невозможна — введите разные значения.'); return; }
     setError(null);
     onConfirm(p1, p2);
   }
@@ -52,11 +53,14 @@ function AmericanoMatch({ match, editable, onConfirm, onEdit }) {
   );
 }
 
-// Теннис 2×2 «Американо»: партнёры меняются каждый раунд (сгенерировано
+// Режим 2×2 «Американо»: партнёры меняются каждый раунд (сгенерировано
 // заранее при создании турнира), поэтому зачёт — личный, по игрокам, а не по
 // парам.
 export default function AmericanoBoard({ tournament, editable, onConfirm = () => {}, onEdit = () => {} }) {
+  const cfg = getSportConfig(tournament.sport);
   const standings = calcAmericanoStandings(tournament);
+  const isLeague = tournament.format === 'league' && cfg.doubleRoundRobinLeague;
+  const roundsPerLeg = (tournament.rounds || []).length / 2;
 
   return (
     <div className="card">
@@ -65,8 +69,8 @@ export default function AmericanoBoard({ tournament, editable, onConfirm = () =>
         <thead>
           <tr>
             <th style={{ width: '40%' }}>Игрок</th>
-            <th title="Матчи">М</th><th title="Победы">В</th><th title="Поражения">П</th>
-            <th title="Очки">О</th><th title="Разница">±</th>
+            <th title="Матчи">М</th><th title="Победы">В</th>{cfg.hasDraws && <th title="Ничьи">Н</th>}<th title="Поражения">П</th>
+            <th>{cfg.diffLabel}</th><th title="Разница">±</th>
             <th title="Очки турнира" style={{ color: 'var(--green)' }}>Т</th>
           </tr>
         </thead>
@@ -74,7 +78,7 @@ export default function AmericanoBoard({ tournament, editable, onConfirm = () =>
           {standings.map((row, i) => (
             <tr key={row.name}>
               <td><span className="pos">{i + 1}.</span>{row.name}</td>
-              <td>{row.played}</td><td>{row.w}</td><td>{row.l}</td>
+              <td>{row.played}</td><td>{row.w}</td>{cfg.hasDraws && <td>{row.d}</td>}<td>{row.l}</td>
               <td>{row.pf}:{row.pa}</td>
               <td style={{ color: row.diff > 0 ? 'var(--green)' : row.diff < 0 ? 'var(--red)' : 'var(--text-muted)' }}>{row.diff > 0 ? '+' : ''}{row.diff}</td>
               <td style={{ fontWeight: 700, color: 'var(--green)' }}>{row.pts}</td>
@@ -83,16 +87,22 @@ export default function AmericanoBoard({ tournament, editable, onConfirm = () =>
         </tbody>
       </table>
       </div>
+      {isLeague && <div className="field-hint">Личный зачёт. В каждом матче слева — хозяева, справа — гости. Ответные встречи проходят отдельным вторым кругом.</div>}
 
       {(tournament.rounds || []).map((round, rIdx) => (
         <div className="group-block" key={rIdx}>
-          <div className="group-name">Раунд {rIdx + 1}</div>
+          <div className="group-name">
+            {isLeague
+              ? `Круг ${rIdx < roundsPerLeg ? 1 : 2} · Тур ${rIdx % roundsPerLeg + 1}${rIdx >= roundsPerLeg ? ' · Ответные встречи' : ''}`
+              : `Раунд ${rIdx + 1}`}
+          </div>
           <div className="group-tour-matches">
             {round.matches.map((match, mIdx) => (
               <AmericanoMatch
                 key={mIdx}
                 match={match}
                 editable={editable}
+                hasDraws={cfg.hasDraws}
                 onConfirm={(s1, s2) => onConfirm(rIdx, mIdx, s1, s2)}
                 onEdit={() => onEdit(rIdx, mIdx)}
               />

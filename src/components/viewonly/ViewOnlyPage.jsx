@@ -62,7 +62,7 @@ export default function ViewOnlyPage({ id }) {
           <div className="vo-hero-name">{tournament.name || 'Турнир'}</div>
           <div className="vo-hero-sub">
             {isTurnik ? `${cfg.icon} Турник`
-              : isAmericano ? `${cfg.icon} Американо`
+              : isAmericano ? `${cfg.icon} ${tournament.format === 'league' ? 'Лига · дома и в гостях' : 'Американо'}`
               : isTeamMatchLog ? `${cfg.icon} Реальный футбол`
               : (FORMAT_LABEL[tournament.format] || '')} · {(tournament.players || []).length} {cfg.unitNoun}
           </div>

@@ -11,6 +11,10 @@ import { assignRandomClubs, getLastClubsByPlayer } from '../../utils/randomClubA
 import { MIN_TEAM_LOG_PLAYERS } from '../../utils/teamMatchLog.js';
 
 let rowIdCounter = 0;
+const DOUBLES_FORMATS = [
+  { fmt: 'americano', label: 'Один круг' },
+  { fmt: 'league', label: '🏅 Лига · дома и в гостях' },
+];
 function newRow(name = '', club = null) {
   rowIdCounter += 1;
   return { id: rowIdCounter, name, club };
@@ -18,6 +22,7 @@ function newRow(name = '', club = null) {
 
 export default function TournamentSetupForm({ sport, onCreated }) {
   const cfg = getSportConfig(sport);
+  const supportsDoublesLeague = cfg.engine === 'americano' && cfg.doubleRoundRobinLeague;
   const { startTournament } = useTournament();
   const [name, setName] = useState('');
   const [rows, setRows] = useState(() => [newRow(), newRow()]);
@@ -31,12 +36,12 @@ export default function TournamentSetupForm({ sport, onCreated }) {
     listHistory().then(setHistory).catch(() => setHistory([]));
   }, []);
 
-  // Реальный футбол начинается минимум с 4 игроков (2×2), остальным видам
-  // спорта хватает двух — сразу открываем нужное количество полей.
+  // Сразу открываем необходимое для выбранного режима количество полей.
   useEffect(() => {
-    const initialRows = cfg.engine === 'team-match-log' ? MIN_TEAM_LOG_PLAYERS : 2;
+    const initialRows = cfg.minParticipants || (cfg.engine === 'team-match-log' ? MIN_TEAM_LOG_PLAYERS : 2);
     setRows(Array.from({ length: initialRows }, () => newRow()));
     setSelectedClubs([]);
+    setFormat(supportsDoublesLeague ? 'league' : 'playoff');
   }, [sport]);
 
   const knownPlayers = useKnownPlayers(history, sport);
@@ -162,7 +167,8 @@ export default function TournamentSetupForm({ sport, onCreated }) {
         <div className="field-hint" style={{ marginTop: 6 }}>
           {cfg.engine === 'bracket-group' && `Минимум 2 ${cfg.unitNoun}. Лучший проигравший займёт место BYE.`}
           {cfg.engine === 'turnik-ladder' && `Минимум 2 ${cfg.unitNoun}.`}
-          {cfg.engine === 'americano' && 'Минимум 3 участника. Команды формируются автоматически и меняются каждый раунд.'}
+          {cfg.engine === 'americano' && `Минимум ${cfg.minParticipants || 3} участника. Пары формируются случайно и меняются каждый раунд.${cfg.allowUnevenTeams === false ? ' Лишние игроки отдыхают: каждый матч строго 2×2.' : ''}`}
+          {supportsDoublesLeague && format === 'league' && ' Во втором круге те же пары играют ответные матчи, поменявшись дома и в гостях. Зачёт личный: победа — 3 очка, ничья — 1.'}
           {cfg.engine === 'team-match-log' && `Минимум ${MIN_TEAM_LOG_PLAYERS} игроков. Те, кто пришёл, сразу разделятся на две команды поровну — при нечётном числе лишний идёт в усиление случайной. Составы потом можно поправить.`}
         </div>
       </div>
@@ -191,13 +197,13 @@ export default function TournamentSetupForm({ sport, onCreated }) {
         </div>
       )}
 
-      {cfg.engine === 'bracket-group' && (
+      {(cfg.engine === 'bracket-group' || supportsDoublesLeague) && (
         <div style={{ marginTop: 16 }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'var(--green)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ display: 'block', width: 3, height: 14, background: 'var(--green)', borderRadius: 2 }} />
             Формат турнира
           </div>
-          <FormatPicker value={format} onChange={setFormat} />
+          <FormatPicker value={format} onChange={setFormat} options={supportsDoublesLeague ? DOUBLES_FORMATS : undefined} />
         </div>
       )}
 

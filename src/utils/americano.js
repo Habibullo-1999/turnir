@@ -27,11 +27,11 @@ function circlePartnerRounds(players) {
 // partnerships are randomly matched up against each other 2-vs-2; a leftover
 // unpaired player is folded into a 1-vs-2 match against a leftover
 // partnership rather than sitting out, whenever both exist that round.
-export function buildAmericanoRounds(players) {
+export function buildAmericanoRounds(players, { allowUnevenTeams = true, double = false } = {}) {
   const shuffled = shuffle(players);
   const partnerRounds = circlePartnerRounds(shuffled);
 
-  return partnerRounds.map(pairs => {
+  const rounds = partnerRounds.map(pairs => {
     const partnerships = [];
     const solos = [];
     pairs.forEach(([a, b]) => {
@@ -49,7 +49,7 @@ export function buildAmericanoRounds(players) {
     const leftoverPartnership = i < shuffledPartnerships.length ? shuffledPartnerships[i] : null;
 
     const byes = [];
-    if (leftoverPartnership && solos.length > 0) {
+    if (allowUnevenTeams && leftoverPartnership && solos.length > 0) {
       matches.push({ pairA: [solos.shift()], pairB: leftoverPartnership, score1: null, score2: null, played: false });
     } else if (leftoverPartnership) {
       byes.push(...leftoverPartnership);
@@ -58,11 +58,25 @@ export function buildAmericanoRounds(players) {
 
     return { matches, byes };
   });
+  if (!double) return rounds;
+
+  // Ответный круг повторяет составы, меняя хозяев и гостей местами.
+  const returnRounds = rounds.map(round => ({
+    matches: round.matches.map(match => ({
+      pairA: [...match.pairB],
+      pairB: [...match.pairA],
+      score1: null,
+      score2: null,
+      played: false,
+    })),
+    byes: [...round.byes],
+  }));
+  return [...rounds, ...returnRounds];
 }
 
 export function calcAmericanoStandings(tournament) {
   const table = {};
-  (tournament.players || []).forEach(p => { table[p] = { pts: 0, w: 0, l: 0, played: 0, pf: 0, pa: 0 }; });
+  (tournament.players || []).forEach(p => { table[p] = { pts: 0, w: 0, d: 0, l: 0, played: 0, pf: 0, pa: 0 }; });
 
   (tournament.rounds || []).forEach(round => {
     round.matches.forEach(m => {
@@ -72,6 +86,7 @@ export function calcAmericanoStandings(tournament) {
       m.pairB.forEach(p => { table[p].played++; table[p].pf += s2; table[p].pa += s1; });
       if (s1 > s2) { m.pairA.forEach(p => { table[p].w++; table[p].pts += 3; }); m.pairB.forEach(p => { table[p].l++; }); }
       else if (s2 > s1) { m.pairB.forEach(p => { table[p].w++; table[p].pts += 3; }); m.pairA.forEach(p => { table[p].l++; }); }
+      else { [...m.pairA, ...m.pairB].forEach(p => { table[p].d++; table[p].pts++; }); }
     });
   });
 
@@ -100,13 +115,14 @@ function pairKey(pair) {
 function creditPair(table, pair, pf, pa) {
   if (pair.length < 2) return; // сольная сторона матча 1×2 — тут нет пары
   const key = pairKey(pair);
-  if (!table[key]) table[key] = { members: pair.slice().sort((a, b) => a.localeCompare(b, 'ru')), played: 0, w: 0, l: 0, pf: 0, pa: 0 };
+  if (!table[key]) table[key] = { members: pair.slice().sort((a, b) => a.localeCompare(b, 'ru')), played: 0, w: 0, d: 0, l: 0, pf: 0, pa: 0 };
   const s = table[key];
   s.played++;
   s.pf += pf;
   s.pa += pa;
   if (pf > pa) s.w++;
   else if (pa > pf) s.l++;
+  else s.d++;
 }
 
 export function aggregateAmericanoPairStats(history) {
@@ -120,5 +136,5 @@ export function aggregateAmericanoPairStats(history) {
       });
     });
   });
-  return Object.values(table).sort((a, b) => b.w - a.w || (b.pf - b.pa) - (a.pf - a.pa));
+  return Object.values(table).sort((a, b) => (b.w * 3 + b.d) - (a.w * 3 + a.d) || (b.pf - b.pa) - (a.pf - a.pa));
 }

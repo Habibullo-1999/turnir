@@ -1,4 +1,5 @@
 export const FOOTBALL = 'football';
+export const FOOTBALL_DOUBLES = 'football-2x2';
 export const FOOTBALL_REAL = 'football-real';
 export const TT_SINGLES = 'table-tennis-1x1';
 export const TT_DOUBLES = 'table-tennis-2x2';
@@ -17,6 +18,21 @@ export const SPORT_CONFIG = {
     diffLabel: 'Голы',
     diffGenitive: 'голов',
     doubleRoundRobinLeague: true,
+  },
+  [FOOTBALL_DOUBLES]: {
+    sport: FOOTBALL_DOUBLES,
+    label: 'Футбол 2×2',
+    icon: '⚽👥',
+    engine: 'americano',
+    hasClub: false,
+    hasPenalty: false,
+    hasDraws: true,
+    minParticipants: 4,
+    allowUnevenTeams: false,
+    doubleRoundRobinLeague: true,
+    unitNoun: 'участников',
+    diffLabel: 'Голы',
+    diffGenitive: 'голов',
   },
   [FOOTBALL_REAL]: {
     sport: FOOTBALL_REAL,

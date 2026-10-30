@@ -189,7 +189,7 @@ function bracketRecords(history, cfg) {
 
 // --- 🏓👥 Американо --------------------------------------------------------
 
-function americanoRecords(history) {
+function americanoRecords(history, cfg) {
   const chrono = chronological(history);
   const matches = [];
   const results = {};
@@ -202,8 +202,8 @@ function americanoRecords(history) {
         if (!m.played) return;
         const label = `${m.pairA.join(' / ')} ${m.score1}:${m.score2} ${m.pairB.join(' / ')}`;
         matches.push({ label, detail: name, total: m.score1 + m.score2, margin: Math.abs(m.score1 - m.score2) });
-        m.pairA.forEach(p => (results[p] ||= []).push(m.score1 > m.score2 ? 'win' : 'loss'));
-        m.pairB.forEach(p => (results[p] ||= []).push(m.score2 > m.score1 ? 'win' : 'loss'));
+        m.pairA.forEach(p => (results[p] ||= []).push(m.score1 > m.score2 ? 'win' : m.score1 === m.score2 ? 'draw' : 'loss'));
+        m.pairB.forEach(p => (results[p] ||= []).push(m.score2 > m.score1 ? 'win' : m.score1 === m.score2 ? 'draw' : 'loss'));
       });
     });
     calcAmericanoStandings(entry).forEach(row => {
@@ -212,16 +212,17 @@ function americanoRecords(history) {
   });
 
   const pairs = aggregateAmericanoPairStats(history);
+  const units = cfg.diffLabel === 'Голы' ? GOALS : POINTS;
   return [
     pickRecord({ id: 'top-match', icon: '🎯', title: 'Самый результативный матч' },
-      matches.map(m => ({ holder: m.label, value: m.total, detail: m.detail })), n => plural(n, POINTS)),
+      matches.map(m => ({ holder: m.label, value: m.total, detail: m.detail })), n => plural(n, units)),
     pickRecord({ id: 'biggest-win', icon: '💥', title: 'Крупнейшая победа' },
       matches.map(m => ({ holder: m.label, value: m.margin, detail: m.detail })), n => `+${n}`),
     pickRecord({ id: 'best-duo', icon: '🤝', title: 'Лучший дуэт' },
       pairs.map(p => ({ holder: p.members.join(' & '), value: p.w, detail: `${p.w}–${p.l}` })), n => plural(n, WINS)),
     pickRecord({ id: 'win-streak', icon: '🔥', title: 'Серия побед' },
       fromCounts(bestStreaks(results, r => r === 'win')), n => plural(n, MATCHES)),
-    pickRecord({ id: 'points-in-tournament', icon: '💯', title: 'Больше всего очков за турнир' }, pointsInTournament, n => plural(n, POINTS)),
+    pickRecord({ id: 'points-in-tournament', icon: '💯', title: `Больше всего ${cfg.diffGenitive || 'очков'} за турнир` }, pointsInTournament, n => plural(n, units)),
   ];
 }
 
@@ -260,7 +261,7 @@ function ladderRecords(history) {
 export function computeRecords(history, cfg) {
   if (!history.length) return [];
   const records = cfg.engine === 'team-match-log' ? teamMatchRecords(history)
-    : cfg.engine === 'americano' ? americanoRecords(history)
+    : cfg.engine === 'americano' ? americanoRecords(history, cfg)
     : cfg.engine === 'turnik-ladder' ? ladderRecords(history)
     : bracketRecords(history, cfg);
   return records.filter(Boolean);

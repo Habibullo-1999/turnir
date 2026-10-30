@@ -49,14 +49,18 @@ export function buildTournamentPayload({ name, participants, format, sport = FOO
 
   if (cfg.engine === 'americano') {
     const names = participants.map(p => p.name.trim()).filter(Boolean);
-    if (names.length < 3) {
-      throw new Error('Введите минимум 3 участника.');
+    const minimum = cfg.minParticipants || 3;
+    if (names.length < minimum) {
+      throw new Error(`Введите минимум ${minimum} участника.`);
     }
+    if (new Set(names).size !== names.length) throw new Error('Имена участников должны быть уникальными.');
+    const isLeague = format === 'league' && cfg.doubleRoundRobinLeague;
     return {
       name: name.trim() || 'Турнир',
       sport,
       players: names,
-      rounds: buildAmericanoRounds(names),
+      ...(isLeague ? { format: 'league' } : {}),
+      rounds: buildAmericanoRounds(names, { allowUnevenTeams: cfg.allowUnevenTeams, double: Boolean(isLeague) }),
     };
   }
 

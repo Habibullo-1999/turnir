@@ -114,7 +114,7 @@ function leaderValue(sortedStats, key) {
 
 function metaLabel(entry, cfg) {
   if (cfg.engine === 'turnik-ladder') return `${cfg.icon} Турник`;
-  if (cfg.engine === 'americano') return `${cfg.icon} Американо`;
+  if (cfg.engine === 'americano') return `${cfg.icon} ${entry.format === 'league' ? 'Лига · дома и в гостях' : 'Американо'}`;
   if (cfg.engine === 'team-match-log') {
     const [s1, s2] = getScores(entry);
     return `${cfg.icon} ${s1} : ${s2}`;
@@ -302,7 +302,7 @@ export default function HistoryList() {
             <table className="stats-table">
               <thead>
                 <tr>
-                  <th>Пара</th><th>Матчей</th><th>✅</th><th>❌</th><th>Очки</th><th>±</th>
+                  <th>Пара</th><th>Матчей</th><th>✅</th>{cfg.hasDraws && <th>🤝</th>}<th>❌</th><th>{cfg.diffLabel}</th><th>±</th>
                 </tr>
               </thead>
               <tbody>
@@ -313,6 +313,7 @@ export default function HistoryList() {
                       <td>{s.members.join(' / ')}</td>
                       <td>{s.played}</td>
                       <td className="td-green">{s.w}</td>
+                      {cfg.hasDraws && <td>{s.d}</td>}
                       <td className="td-red">{s.l}</td>
                       <td>{s.pf}:{s.pa}</td>
                       <td className={diff > 0 ? 'td-green' : diff < 0 ? 'td-red' : ''}>{diff > 0 ? '+' : ''}{diff}</td>
