@@ -1,6 +1,8 @@
 import React from 'react';
 import ConfettiEffect from './ConfettiEffect.jsx';
 import { downloadTournamentJson } from '../../utils/exportTournament.js';
+import { getTournamentWinner } from '../../utils/tournamentWinner.js';
+import { FOOTBALL_DOUBLES } from '../../utils/sportConfig.js';
 
 const habibTrophySrc = `${import.meta.env.BASE_URL}prince_habibu.jpg`;
 
@@ -22,24 +24,25 @@ export default function WinnerBanner({
     }
   }
   const participantMeta = tournament.participantMeta || tournament.playerMeta || {};
-  const winnerMeta = participantMeta[tournament.winner];
+  const winner = getTournamentWinner(tournament);
+  const winnerMeta = participantMeta[winner];
   const winnerNameParts = [
-    tournament.winner,
+    winner,
     ...(winnerMeta?.members || []),
   ].flatMap(name => String(name || '').split(/[&/+]/));
   const isHabibWinner = winnerNameParts.some(name => name.trim().toLocaleLowerCase('ru-RU') === 'хабиб');
 
   return (
     <>
-      {celebrate && <ConfettiEffect key={tournament.winner} />}
+      {celebrate && <ConfettiEffect key={winner} />}
       <div className="card" id="winner-section">
         {isHabibWinner ? (
           <img className="habib-trophy" src={habibTrophySrc} alt="Prince Habibu" />
         ) : (
           <span className="trophy">{icon}</span>
         )}
-        <div className="winner-label">{label}</div>
-        <div className="winner-name">{tournament.winner}</div>
+        <div className="winner-label">{tournament.sport === FOOTBALL_DOUBLES ? 'Лучшая пара турнира' : label}</div>
+        <div className="winner-name">{winner}</div>
         <div className="winner-sub">{subText || <>{icon} {subLabel || 'Чемпион турнира'} «{tournament.name}»</>}</div>
         <div style={{ marginTop: 24, display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <button className="btn btn-export" onClick={() => downloadTournamentJson(tournament)}>📤 Экспорт результатов</button>

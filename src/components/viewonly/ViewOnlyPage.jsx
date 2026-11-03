@@ -8,6 +8,7 @@ import TeamMatchBoard from '../tournament/TeamMatchBoard.jsx';
 import { DRAW_LABEL } from '../../utils/teamMatchLog.js';
 import { getTournament } from '../../services/tournaments.js';
 import { getSportConfig } from '../../utils/sportConfig.js';
+import { getTournamentWinner } from '../../utils/tournamentWinner.js';
 
 const FORMAT_LABEL = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы + Плей-офф', league: '🏅 Лига' };
 const REFRESH_SECONDS = 30;
@@ -85,7 +86,7 @@ export default function ViewOnlyPage({ id }) {
             )}
           </>
         )}
-        {tournament.status === 'finished' && tournament.winner && (
+        {tournament.status === 'finished' && getTournamentWinner(tournament) && (
           <WinnerBanner
             tournament={tournament}
             celebrate={false}

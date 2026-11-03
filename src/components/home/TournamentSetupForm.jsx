@@ -173,7 +173,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
           {cfg.engine === 'bracket-group' && `Минимум 2 ${cfg.unitNoun}. Лучший проигравший займёт место BYE.`}
           {cfg.engine === 'turnik-ladder' && `Минимум 2 ${cfg.unitNoun}.`}
           {cfg.engine === 'americano' && `Минимум ${cfg.minParticipants || 3} участника. Пары формируются случайно и меняются каждый раунд.${cfg.allowUnevenTeams === false ? ' Лишние игроки отдыхают: каждый матч строго 2×2.' : ''}`}
-          {supportsDoublesLeague && format === 'league' && ' Во втором круге те же пары играют ответные матчи, поменявшись дома и в гостях. Зачёт личный: победа — 3 очка, ничья — 1.'}
+          {supportsDoublesLeague && format === 'league' && ' Во втором круге те же пары играют ответные матчи, поменявшись дома и в гостях. Зачёт парный: победа — 3 очка, ничья — 1.'}
           {cfg.engine === 'team-match-log' && `Минимум ${MIN_TEAM_LOG_PLAYERS} игроков. Те, кто пришёл, сразу разделятся на две команды поровну — при нечётном числе лишний идёт в усиление случайной. Составы потом можно поправить.`}
         </div>
       </div>

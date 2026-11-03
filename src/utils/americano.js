@@ -1,4 +1,5 @@
 import { shuffle } from './bracket.js';
+import { FOOTBALL_DOUBLES } from './sportConfig.js';
 
 const BYE = null;
 
@@ -100,8 +101,24 @@ export function isAmericanoComplete(tournament) {
 }
 
 export function computeAmericanoResult(tournament) {
+  if (tournament.sport === FOOTBALL_DOUBLES) {
+    const standings = calcFootballDoublesStandings(tournament);
+    const first = standings[0];
+    const winners = first ? standings.filter(row => comparePairResults(row, first) === 0) : [];
+    return { winner: winners.map(row => row.name).join(' / ') || null, standings };
+  }
   const standings = calcAmericanoStandings(tournament);
   return { winner: standings[0]?.name || null, standings };
+}
+
+function comparePairResults(a, b) {
+  return b.pts - a.pts || b.diff - a.diff || b.pf - a.pf;
+}
+
+export function calcFootballDoublesStandings(tournament) {
+  return aggregateAmericanoPairStats([tournament])
+    .map(row => ({ ...row, name: row.members.join(' & '), pts: row.w * 3 + row.d, diff: row.pf - row.pa }))
+    .sort((a, b) => comparePairResults(a, b) || a.name.localeCompare(b.name, 'ru'));
 }
 
 // Партнёры в «Американо» меняются каждый раунд, поэтому нет смысла в личном

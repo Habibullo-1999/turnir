@@ -7,9 +7,11 @@ import TeamMatchBoard from '../tournament/TeamMatchBoard.jsx';
 import { computeGroupTours, computeLeagueTours } from '../../utils/groups.js';
 import { getSportConfig } from '../../utils/sportConfig.js';
 import { DRAW_LABEL } from '../../utils/teamMatchLog.js';
+import { getTournamentWinner } from '../../utils/tournamentWinner.js';
 
 export default function HistoryModal({ entry, onClose }) {
   const cfg = getSportConfig(entry.sport);
+  const winner = getTournamentWinner(entry);
   const isBracketGroup = cfg.engine === 'bracket-group';
   const participantMeta = entry.participantMeta || entry.playerMeta;
   const groups = entry.groups || [];
@@ -22,7 +24,7 @@ export default function HistoryModal({ entry, onClose }) {
         <div className="history-modal-header">
           <div>
             <div className="history-modal-title">{entry.name || 'Турнир'}</div>
-            <div className="history-modal-subtitle">{entry.date} · {(entry.players || []).length} {cfg.unitNoun} · {cfg.engine === 'team-match-log' && entry.winner === DRAW_LABEL ? '🤝' : '🏆'} {entry.winner || '—'}</div>
+            <div className="history-modal-subtitle">{entry.date} · {(entry.players || []).length} {cfg.unitNoun} · {cfg.engine === 'team-match-log' && winner === DRAW_LABEL ? '🤝' : '🏆'} {winner || '—'}</div>
           </div>
           <button className="btn btn-secondary" onClick={onClose}>✕ Закрыть</button>
         </div>

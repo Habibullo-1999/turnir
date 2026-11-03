@@ -9,6 +9,7 @@ import HistoryModal from './HistoryModal.jsx';
 import RecordsGrid from './RecordsGrid.jsx';
 import PlayerComparison from './PlayerComparison.jsx';
 import { computeRecords } from '../../utils/records.js';
+import { getTournamentWinner } from '../../utils/tournamentWinner.js';
 import DeleteTournamentButton from '../DeleteTournamentButton.jsx';
 
 const FORMAT_LABEL = { playoff: '🏆 Плей-офф', group: '📊 Групповой', 'group+playoff': '📊→🏆 Группы+ПО', league: '🏅 Лига' };
@@ -450,25 +451,28 @@ export default function HistoryList() {
           )}
 
           <div className="history-list">
-            {pageItems.map(entry => (
-              <div className="history-item" key={entry.id}>
-                <div>
-                  <div className="history-item-name">{entry.name || 'Турнир'}</div>
-                  <div className="history-item-meta">
-                    {entry.date} · {(entry.players || []).length} {cfg.unitNoun} · {metaLabel(entry, cfg)}
+            {pageItems.map(entry => {
+              const winner = getTournamentWinner(entry);
+              return (
+                <div className="history-item" key={entry.id}>
+                  <div>
+                    <div className="history-item-name">{entry.name || 'Турнир'}</div>
+                    <div className="history-item-meta">
+                      {entry.date} · {(entry.players || []).length} {cfg.unitNoun} · {metaLabel(entry, cfg)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <div className="history-item-winner">{winner ? `${winner === DRAW_LABEL ? '🤝' : '🏆'} ${winner}` : '—'}</div>
+                    <button className="btn btn-reset" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => setOpenEntry(entry)}>{isTeamMatchLog ? '📊 Матч' : '📊 Сетка'}</button>
+                    <button className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => handleReopen(entry)}>↩️ Вернуть</button>
+                    <DeleteTournamentButton tournament={entry} label="Удалить" onDeleted={() => {
+                      setHistory(prev => prev.filter(item => item.id !== entry.id));
+                      setOpenEntry(prev => prev?.id === entry.id ? null : prev);
+                    }} />
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <div className="history-item-winner">{entry.winner ? `${entry.winner === DRAW_LABEL ? '🤝' : '🏆'} ${entry.winner}` : '—'}</div>
-                  <button className="btn btn-reset" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => setOpenEntry(entry)}>{isTeamMatchLog ? '📊 Матч' : '📊 Сетка'}</button>
-                  <button className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '5px 10px' }} onClick={() => handleReopen(entry)}>↩️ Вернуть</button>
-                  <DeleteTournamentButton tournament={entry} label="Удалить" onDeleted={() => {
-                    setHistory(prev => prev.filter(item => item.id !== entry.id));
-                    setOpenEntry(prev => prev?.id === entry.id ? null : prev);
-                  }} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {totalPages > 1 && (

@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTournamentPayload } from './createTournamentPayload.js';
-import { aggregateAmericanoPairStats, calcAmericanoStandings } from './americano.js';
+import { aggregateAmericanoPairStats, calcAmericanoStandings, calcFootballDoublesStandings, computeAmericanoResult } from './americano.js';
 import { confirmAmericanoScore } from './americanoActions.js';
 import { getParticipantRemovalError, removeParticipant } from './removeParticipant.js';
-import { FOOTBALL_DOUBLES, SPORT_CONFIG } from './sportConfig.js';
+import { FOOTBALL_DOUBLES, SPORT_CONFIG, TT_DOUBLES } from './sportConfig.js';
 import { computeRecords } from './records.js';
+import { getTournamentWinner } from './tournamentWinner.js';
 
 function tournament(count, format) {
   return {
@@ -141,4 +142,56 @@ test('removing a league player rebuilds both legs', () => {
     assert.ok(!round.byes.includes(removed));
     assert.ok(round.matches.every(match => ![...match.pairA, ...match.pairB].includes(removed)));
   }
+});
+
+function pairTournament(scores) {
+  return {
+    sport: FOOTBALL_DOUBLES, status: 'active', players: ['A', 'B', 'C', 'D'],
+    rounds: scores.map(([pairA, pairB, score1, score2]) => ({
+      matches: [{ pairA, pairB, score1, score2, played: true }],
+    })),
+  };
+}
+
+test('football winner is the best pair instead of the best individual player', () => {
+  const draft = pairTournament([
+    [['A', 'B'], ['C', 'D'], 8, 0],
+    [['A', 'C'], ['B', 'D'], 2, 0],
+    [['A', 'D'], ['B', 'C'], 3, 0],
+  ]);
+  assert.equal(calcAmericanoStandings(draft)[0].name, 'A');
+  assert.equal(computeAmericanoResult(draft).winner, 'A & B');
+  confirmAmericanoScore(draft, 2, 0, 3, 0);
+  assert.equal(draft.status, 'finished');
+  assert.equal(draft.winner, 'A & B');
+  assert.equal(getTournamentWinner({ ...draft, winner: 'A' }), 'A & B');
+  assert.equal(computeAmericanoResult({ ...draft, sport: TT_DOUBLES }).winner, 'A');
+});
+
+test('pair ranking uses points, goal difference and goals scored in that order', () => {
+  const draft = pairTournament([
+    [['A', 'B'], ['C', 'D'], 3, 1],
+    [['C', 'A'], ['B', 'D'], 4, 2],
+    [['B', 'A'], ['D', 'C'], 0, 0],
+  ]);
+  assert.equal(computeAmericanoResult(draft).winner, 'A & B'); // 4 points beats 3
+  draft.rounds.pop();
+  assert.equal(computeAmericanoResult(draft).winner, 'A & C'); // equal points and difference, more goals
+  draft.rounds[0].matches[0].score1 = 5;
+  assert.equal(computeAmericanoResult(draft).winner, 'A & B'); // bigger difference
+});
+
+test('full ties share first place and pair order never changes the result', () => {
+  const draft = pairTournament([
+    [['B', 'A'], ['C', 'D'], 2, 0],
+    [['C', 'A'], ['B', 'D'], 2, 0],
+  ]);
+  assert.equal(computeAmericanoResult(draft).winner, 'A & B / A & C');
+  draft.rounds.push({ matches: [{ pairA: ['D', 'C'], pairB: ['A', 'B'], score1: 0, score2: 2, played: true }] });
+  const standings = calcFootballDoublesStandings(draft);
+  assert.equal(standings[0].name, 'A & B');
+  assert.equal(standings[0].pts, 6);
+  assert.equal(standings[0].played, 2);
+  assert.equal(standings[0].diff, 4);
+  assert.equal(computeAmericanoResult({ ...draft, rounds: [] }).winner, null);
 });

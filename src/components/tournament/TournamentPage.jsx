@@ -21,6 +21,7 @@ import { swapBracketSlots, movePlayerToGroup } from '../../utils/manualRearrange
 import { markPassed, markFailed, undoMark, advanceRound, reopenLadder } from '../../utils/ladderActions.js';
 import { confirmAmericanoScore, clearAmericanoScore } from '../../utils/americanoActions.js';
 import { distributeDoublesClubs } from '../../utils/doublesClubs.js';
+import { getTournamentWinner } from '../../utils/tournamentWinner.js';
 import {
   renameTeam, setScore, setPlayedAt, bumpGoal, bumpAssist, bumpOwnGoal, movePlayer, addPlayer,
   reshuffleTeams, finishMatch, reopenMatch,
@@ -277,7 +278,7 @@ export default function TournamentPage({ onHome }) {
       )}
       {advanceError && <div style={{ color: 'var(--red)', margin: '8px 0' }}>⚠️ {advanceError}</div>}
 
-      {tournament.status === 'finished' && tournament.winner && (
+      {tournament.status === 'finished' && getTournamentWinner(tournament) && (
         <WinnerBanner
           tournament={tournament}
           celebrate={justFinished}
