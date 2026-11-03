@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import ParticipantRow from './ParticipantRow.jsx';
 import ClubAutocomplete from './ClubAutocomplete.jsx';
+import DoublesClubPicker from './DoublesClubPicker.jsx';
 import FormatPicker from './FormatPicker.jsx';
 import { useKnownPlayers } from '../../hooks/useKnownPlayers.js';
 import { buildTournamentPayload } from '../../utils/createTournamentPayload.js';
 import { useTournament } from '../../context/TournamentContext.jsx';
 import { listHistory } from '../../services/tournaments.js';
-import { FOOTBALL, getSportConfig } from '../../utils/sportConfig.js';
+import { FOOTBALL, FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
 import { assignRandomClubs, getLastClubsByPlayer } from '../../utils/randomClubAssignment.js';
 import { MIN_TEAM_LOG_PLAYERS } from '../../utils/teamMatchLog.js';
 
@@ -28,6 +29,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
   const [rows, setRows] = useState(() => [newRow(), newRow()]);
   const [format, setFormat] = useState('playoff');
   const [selectedClubs, setSelectedClubs] = useState([]);
+  const [clubPool, setClubPool] = useState(null);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -41,6 +43,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
     const initialRows = cfg.minParticipants || (cfg.engine === 'team-match-log' ? MIN_TEAM_LOG_PLAYERS : 2);
     setRows(Array.from({ length: initialRows }, () => newRow()));
     setSelectedClubs([]);
+    setClubPool(null);
     setFormat(supportsDoublesLeague ? 'league' : 'playoff');
   }, [sport]);
 
@@ -98,6 +101,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
         participants: rows.map(r => ({ name: r.name, club: r.club })),
         format,
         sport,
+        ...(sport === FOOTBALL_DOUBLES ? { clubPool } : {}),
       });
       await startTournament(payload);
       onCreated();
@@ -140,6 +144,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
         >
           + Добавить участника
         </button>
+        {sport === FOOTBALL_DOUBLES && <DoublesClubPicker clubs={clubPool} onChange={setClubPool} playerCount={existingNames.length} allowNone />}
         {cfg.hasClub && (
           <div className="random-clubs-panel">
             <div className="random-clubs-heading">Выберите клубы для распределения</div>

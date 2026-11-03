@@ -3,9 +3,10 @@ import { buildGroups, buildLeague } from './groups.js';
 import { buildAmericanoRounds } from './americano.js';
 import { getSportConfig, FOOTBALL, TURNIK } from './sportConfig.js';
 import { MIN_TEAM_LOG_PLAYERS, buildTeams } from './teamMatchLog.js';
+import { distributeDoublesClubs } from './doublesClubs.js';
 
 // participants: [{ name: string, club: {club,league,flag,icon} | null }]
-export function buildTournamentPayload({ name, participants, format, sport = FOOTBALL }) {
+export function buildTournamentPayload({ name, participants, format, sport = FOOTBALL, clubPool }) {
   const cfg = getSportConfig(sport);
 
   if (cfg.engine === 'turnik-ladder') {
@@ -55,13 +56,15 @@ export function buildTournamentPayload({ name, participants, format, sport = FOO
     }
     if (new Set(names).size !== names.length) throw new Error('Имена участников должны быть уникальными.');
     const isLeague = format === 'league' && cfg.doubleRoundRobinLeague;
-    return {
+    const payload = {
       name: name.trim() || 'Турнир',
       sport,
       players: names,
       ...(isLeague ? { format: 'league' } : {}),
       rounds: buildAmericanoRounds(names, { allowUnevenTeams: cfg.allowUnevenTeams, double: Boolean(isLeague) }),
     };
+    if (clubPool) distributeDoublesClubs(payload, clubPool, Math.floor(Math.random() * 2 ** 32));
+    return payload;
   }
 
   const names = participants.map(p => p.name.trim()).filter(Boolean);

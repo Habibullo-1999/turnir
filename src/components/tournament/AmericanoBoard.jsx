@@ -1,9 +1,20 @@
 import React, { useState } from 'react';
 import { calcAmericanoStandings } from '../../utils/americano.js';
-import { getSportConfig } from '../../utils/sportConfig.js';
+import { FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
+import DoublesClubPicker from '../home/DoublesClubPicker.jsx';
 
 function pairName(pair) {
   return pair.join(' / ');
+}
+
+function PairLabel({ pair, club }) {
+  return <span className="gm-team-name doubles-pair-label">
+    <span>{pairName(pair)}</span>
+    {club?.club && <span className="doubles-club">
+      {club.icon ? <img src={`${import.meta.env.BASE_URL}${club.icon}`} alt="" className="club-badge-icon" /> : club.flag}
+      {club.club}
+    </span>}
+  </span>;
 }
 
 function AmericanoMatch({ match, editable, hasDraws, onConfirm, onEdit }) {
@@ -26,7 +37,7 @@ function AmericanoMatch({ match, editable, hasDraws, onConfirm, onEdit }) {
   return (
     <div className={'group-match' + (match.played ? ' played' : ' active')}>
       <div className="gm-row">
-        <div className={'gm-team' + (w1 ? ' gm-winner' : '')}><span className="gm-team-name">{pairName(match.pairA)}</span></div>
+        <div className={'gm-team' + (w1 ? ' gm-winner' : '')}><PairLabel pair={match.pairA} club={match.clubA} /></div>
         {match.played ? (
           <div className="gm-result">{match.score1} : {match.score2}</div>
         ) : editable ? (
@@ -38,7 +49,7 @@ function AmericanoMatch({ match, editable, hasDraws, onConfirm, onEdit }) {
         ) : (
           <div className="gm-result">— : —</div>
         )}
-        <div className={'gm-team right' + (w2 ? ' gm-winner' : '')}><span className="gm-team-name">{pairName(match.pairB)}</span></div>
+        <div className={'gm-team right' + (w2 ? ' gm-winner' : '')}><PairLabel pair={match.pairB} club={match.clubB} /></div>
         {match.played && editable && (
           <button className="gm-edit" title="Редактировать счёт" onClick={onEdit}>✏️</button>
         )}
@@ -56,7 +67,9 @@ function AmericanoMatch({ match, editable, hasDraws, onConfirm, onEdit }) {
 // Режим 2×2 «Американо»: партнёры меняются каждый раунд (сгенерировано
 // заранее при создании турнира), поэтому зачёт — личный, по игрокам, а не по
 // парам.
-export default function AmericanoBoard({ tournament, editable, onConfirm = () => {}, onEdit = () => {} }) {
+export default function AmericanoBoard({ tournament, editable, onConfirm = () => {}, onEdit = () => {}, onDistributeClubs }) {
+  const [clubPool, setClubPool] = useState(tournament.clubPool || null);
+  const [clubError, setClubError] = useState(null);
   const cfg = getSportConfig(tournament.sport);
   const standings = calcAmericanoStandings(tournament);
   const isLeague = tournament.format === 'league' && cfg.doubleRoundRobinLeague;
@@ -88,6 +101,16 @@ export default function AmericanoBoard({ tournament, editable, onConfirm = () =>
       </table>
       </div>
       {isLeague && <div className="field-hint">Личный зачёт. В каждом матче слева — хозяева, справа — гости. Ответные встречи проходят отдельным вторым кругом.</div>}
+
+      {editable && tournament.sport === FOOTBALL_DOUBLES && onDistributeClubs && <>
+        <DoublesClubPicker clubs={clubPool} onChange={setClubPool} playerCount={tournament.players.length} allowNone />
+        <button type="button" className="btn btn-secondary" disabled={!clubPool || clubPool.some(club => !club)} onClick={() => {
+          setClubError(null);
+          try { onDistributeClubs(clubPool); } catch (error) { setClubError(error.message); }
+        }}>🎲 Распределить клубы</button>
+        <div className="field-hint">Распределение применяется только к несыгранным матчам.</div>
+        {clubError && <div className="field-hint" style={{ color: 'var(--red)' }}>{clubError}</div>}
+      </>}
 
       {(tournament.rounds || []).map((round, rIdx) => (
         <div className="group-block" key={rIdx}>

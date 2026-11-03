@@ -1,5 +1,6 @@
 import { buildRounds, isRealMatch, propagateWinners } from './bracket.js';
 import { buildAmericanoRounds } from './americano.js';
+import { distributeDoublesClubs } from './doublesClubs.js';
 import { computeTournamentResult, isTournamentComplete } from './computeStats.js';
 import { computeLadderResult, isLadderComplete } from './ladder.js';
 import { creditedGoals, getScores, getTeams } from './teamMatchLog.js';
@@ -103,6 +104,7 @@ export function removeParticipant(draft, player) {
       allowUnevenTeams: cfg.allowUnevenTeams,
       double: draft.format === 'league' && cfg.doubleRoundRobinLeague,
     });
+    if (draft.clubPool) distributeDoublesClubs(draft, draft.clubPool, 0);
   } else if (engine === 'bracket-group') {
     (draft.groups || []).forEach(group => {
       group.players = group.players.filter(name => name !== player);

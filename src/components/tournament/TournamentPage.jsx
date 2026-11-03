@@ -20,6 +20,7 @@ import {
 import { swapBracketSlots, movePlayerToGroup } from '../../utils/manualRearrange.js';
 import { markPassed, markFailed, undoMark, advanceRound, reopenLadder } from '../../utils/ladderActions.js';
 import { confirmAmericanoScore, clearAmericanoScore } from '../../utils/americanoActions.js';
+import { distributeDoublesClubs } from '../../utils/doublesClubs.js';
 import {
   renameTeam, setScore, setPlayedAt, bumpGoal, bumpAssist, bumpOwnGoal, movePlayer, addPlayer,
   reshuffleTeams, finishMatch, reopenMatch,
@@ -215,11 +216,15 @@ export default function TournamentPage({ onHome }) {
 
       {isAmericano && (
         <AmericanoBoard
-          key={tournament.players.length}
+          key={`${tournament.id}-${tournament.players.length}`}
           tournament={tournament}
           editable={editable}
           onConfirm={handleAmericanoConfirm}
           onEdit={requestAmericanoEdit}
+          onDistributeClubs={clubs => {
+            const seed = Math.floor(Math.random() * 2 ** 32);
+            mutate(draft => distributeDoublesClubs(draft, clubs, seed));
+          }}
         />
       )}
 
