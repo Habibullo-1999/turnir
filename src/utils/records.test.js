@@ -45,6 +45,9 @@ test('real football: match, player and streak records in playing order', () => {
   assert.deepEqual(r['clean-sheets'].holders.sort(), ['Али', 'Олег']);
   assert.equal(r['iron-man'].value, '3 матча');
   assert.deepEqual(r['own-goals'].holders, ['Олег']);
+  assert.deepEqual(r['goals-in-match'].tournaments.map(e => e.id), ['1000', '2000']);
+  assert.deepEqual(r.unbeaten.tournaments.map(e => e.id), ['2000', '3000']);
+  assert.deepEqual(r['iron-man'].tournaments.map(e => e.id), ['1000', '2000', '3000']);
 });
 
 function fifa(id, finishedAt, winner, extra) {
@@ -82,6 +85,10 @@ test('bracket: skips BYE/unplayed, counts penalties, streaks across tournaments'
   assert.equal(r['conceded-in-tournament'].value, '6 голов');
   assert.deepEqual(r['clean-wins'].holders, ['A']);
   assert.deepEqual(r['penalty-king'].holders, ['C']);
+  assert.deepEqual(r['top-match'].tournaments.map(e => e.id), ['1']);
+  assert.deepEqual(r['win-streak'].tournaments.map(e => e.id), ['1', '2']);
+  assert.deepEqual(r['champion-streak'].tournaments.map(e => e.id), ['1', '2']);
+  assert.deepEqual(r['scored-in-tournament'].tournaments.map(e => e.id), ['0']);
 });
 
 test('table tennis singles uses sets and has no penalty record', () => {
@@ -112,6 +119,7 @@ test('americano: matches, best duo, streak and points in a tournament', () => {
   assert.deepEqual(r['win-streak'].holders, ['B']);
   assert.equal(r['win-streak'].value, '3 матча');
   assert.deepEqual(r['points-in-tournament'].holders, ['B']); // 11 + 11 + 11
+  for (const record of Object.values(r)) assert.deepEqual(record.tournaments, history);
 });
 
 test('turnik: reps, longest tournament, champion streak, podiums, legacy elimination format', () => {
@@ -131,4 +139,19 @@ test('turnik: reps, longest tournament, champion streak, podiums, legacy elimina
   assert.equal(r['champion-streak'].value, '2 турнира');
   assert.equal(r.podiums.value, '2 раза');
   assert.equal(r['total-reps'].value, '21 подтягивание'); // A: 6 + 15
+  assert.deepEqual(r['reps-in-tournament'].tournaments.map(e => e.id), ['2']);
+  assert.deepEqual(r['champion-streak'].tournaments.map(e => e.id), ['1', '2']);
+  assert.deepEqual(r['total-reps'].tournaments.map(e => e.id), ['1', '2']);
+});
+
+test('record links retain ties with identical names and exclude shorter streaks', () => {
+  const history = ['A', 'A', 'B', 'A', 'B', 'A', 'A'].map((winner, index) => ({
+    id: String(index), name: 'Кубок', finishedAt: index + 1, winner,
+    players: ['A', 'B'],
+    rounds: [[{ t1: 'A', t2: 'B', score1: winner === 'A' ? 2 : 0, score2: winner === 'B' ? 2 : 0, winner }]],
+  }));
+  const records = byId(computeRecords(history, SPORT_CONFIG[FOOTBALL]));
+  assert.deepEqual(records['top-match'].tournaments.map(e => e.id), ['0', '1', '2', '3', '4', '5', '6']);
+  assert.deepEqual(records['win-streak'].tournaments.map(e => e.id), ['0', '1', '5', '6']);
+  assert.deepEqual(records['champion-streak'].tournaments.map(e => e.id), ['0', '1', '5', '6']);
 });

@@ -186,6 +186,23 @@ textarea { min-height: 140px; line-height: 1.7; }
 .stat-card .stat-detail { font-size: 0.68rem; color: var(--text-dim); margin-top: 2px; overflow-wrap: anywhere; }
 .records-grid .stat-wins { color: var(--gold); font-size: 1.25rem; }
 .records-grid .record-holders { white-space: normal; overflow-wrap: anywhere; }
+.record-sources { margin-top: 6px; font-size: 0.75rem; overflow-wrap: anywhere; }
+.record-sources summary { cursor: pointer; color: var(--text-dim); }
+.record-sources a { display: block; margin-top: 4px; color: var(--green); text-decoration: underline; }
+
+.player-comparison { padding: 16px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.comparison-pickers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.comparison-pickers label { min-width: 0; font-size: 0.75rem; color: var(--text-muted); }
+.comparison-pickers select { display: block; width: 100%; margin-top: 6px; }
+.comparison-note { font-size: 0.75rem; color: var(--text-muted); margin: 10px 0; }
+.comparison-scoreboard { display: grid; grid-template-columns: minmax(0, 1fr) minmax(70px, 0.6fr) minmax(0, 1fr); gap: 8px; padding: 16px 0; text-align: center; }
+.comparison-scoreboard span { display: block; overflow-wrap: anywhere; font-weight: 600; font-size: 0.85rem; }
+.comparison-scoreboard strong { display: block; color: var(--green); font-size: clamp(2rem, 6vw, 3rem); font-variant-numeric: tabular-nums; }
+.comparison-scoreboard small, .comparison-table small { display: block; color: var(--text-muted); font-size: 0.7rem; }
+.comparison-draws strong { color: var(--text-muted); }
+.comparison-table a { display: block; color: var(--green); text-decoration: underline; font-size: 0.75rem; white-space: normal; overflow-wrap: anywhere; }
+.comparison-table th { white-space: normal; }
+.comparison-meetings summary { cursor: pointer; color: var(--green); font-size: 0.85rem; padding: 8px 0; }
 
 .history-list { display: flex; flex-direction: column; gap: 8px; }
 .history-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; font-size: 0.8rem; color: var(--text-muted); }

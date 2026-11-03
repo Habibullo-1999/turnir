@@ -7,6 +7,7 @@ import { DRAW_LABEL, computeMatchStats, getScores, matchResult, pluralPlayers } 
 import { SPORT_CONFIG, getSportConfig, FOOTBALL } from '../../utils/sportConfig.js';
 import HistoryModal from './HistoryModal.jsx';
 import RecordsGrid from './RecordsGrid.jsx';
+import PlayerComparison from './PlayerComparison.jsx';
 import { computeRecords } from '../../utils/records.js';
 import DeleteTournamentButton from '../DeleteTournamentButton.jsx';
 
@@ -22,6 +23,10 @@ const PAGE_SIZE = 10;
 function statsFor(entry) {
   if (entry.groups || entry.rounds) return computeTournamentResult(entry).stats;
   return entry.stats || {};
+}
+
+function playerCountFor(entry) {
+  return entry.players?.length ?? Object.values(entry.stats || {}).filter(Boolean).length;
 }
 
 function aggregateStats(history) {
@@ -177,6 +182,7 @@ export default function HistoryList() {
   const [page, setPage] = useState(1);
   const [sportFilter, setSportFilter] = useState(FOOTBALL);
   const [period, setPeriod] = useState('all');
+  const [playerCount, setPlayerCount] = useState('all');
   const [teamStatsView, setTeamStatsView] = useState('team');
 
   const load = useCallback(() => {
@@ -189,8 +195,8 @@ export default function HistoryList() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [history.length, sportFilter, period]);
-  useEffect(() => { setPeriod('all'); }, [sportFilter]);
+  useEffect(() => { setPage(1); }, [history.length, sportFilter, period, playerCount]);
+  useEffect(() => { setPeriod('all'); setPlayerCount('all'); }, [sportFilter]);
 
   async function handleReopen(entry) {
     if (!confirm(`Вернуть «${entry.name || 'Турнир'}» в работу и снять пометку "завершён"?`)) return;
@@ -216,8 +222,10 @@ export default function HistoryList() {
   const isAmericano = cfg.engine === 'americano';
   const isTeamMatchLog = cfg.engine === 'team-match-log';
   const sportHistory = history.filter(entry => (entry.sport || FOOTBALL) === sportFilter);
+  const playerCounts = [...new Set(sportHistory.map(playerCountFor))].filter(count => count > 0).sort((a, b) => a - b);
   const { years, months } = buildPeriodOptions(sportHistory);
-  const periodHistory = sportHistory.filter(entry => matchesPeriod(entry, period));
+  const periodHistory = sportHistory.filter(entry => matchesPeriod(entry, period)
+    && (sportFilter !== FOOTBALL || playerCount === 'all' || playerCountFor(entry) === Number(playerCount)));
   const sortedStats = isTurnik ? aggregateLadderStats(periodHistory)
     : isAmericano ? aggregateAmericanoPairStats(periodHistory)
     : isTeamMatchLog ? aggregateTeamMatchStats(periodHistory, teamStatsView)
@@ -246,6 +254,17 @@ export default function HistoryList() {
         ))}
       </div>
 
+      {sportFilter === FOOTBALL && (
+        <select
+          aria-label="Количество игроков"
+          value={playerCount}
+          onChange={e => setPlayerCount(e.target.value)}
+          style={{ marginRight: 8, marginBottom: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', padding: '7px 10px', fontSize: '0.85rem', fontFamily: 'inherit' }}
+        >
+          <option value="all">Любое количество игроков</option>
+          {playerCounts.map(count => <option key={count} value={count}>{pluralPlayers(count)}</option>)}
+        </select>
+      )}
       {(years.length > 0 || months.length > 0) && (
         <select
           value={period}
@@ -266,8 +285,10 @@ export default function HistoryList() {
         </select>
       )}
 
+      {sportFilter === FOOTBALL && <PlayerComparison history={periodHistory} availableHistory={sportHistory} />}
+
       {!periodHistory.length ? (
-        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>Нет завершённых турниров за этот период.</div>
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>Нет завершённых турниров по выбранным фильтрам.</div>
       ) : (
         <>
           <RecordsGrid records={records} />

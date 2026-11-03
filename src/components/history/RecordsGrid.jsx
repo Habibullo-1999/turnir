@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const MAX_HOLDERS = 3;
 
@@ -22,6 +23,16 @@ export default function RecordsGrid({ records }) {
                 {shown.join(', ')}{more > 0 && ` +${more}`}
               </div>
               {record.detail && <div className="stat-detail">{record.detail}</div>}
+              {record.tournaments?.length > 0 && (
+                <details className="record-sources" open={record.tournaments.length === 1}>
+                  <summary>Турниры: {record.tournaments.length}</summary>
+                  {record.tournaments.map(entry => (
+                    <Link key={entry.id} to={`/view/${encodeURIComponent(entry.id)}`}>
+                      {entry.name || 'Турнир'}{entry.date ? ` · ${entry.date}` : ''}
+                    </Link>
+                  ))}
+                </details>
+              )}
             </div>
           );
         })}

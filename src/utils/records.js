@@ -5,9 +5,10 @@ import { computeMatchStats, formatMatchDate, getScores, getTeams } from './teamM
 
 // Рекорды для блока «🏅 Рекорды» в истории. Всё считается из уже сохранённых
 // матчей, ничего нового не записывается. Каждый рекорд — карточка
-// `{ id, icon, title, value, holders, detail }`: `holders` — кто (или какой
+// `{ id, icon, title, value, holders, detail, tournaments }`: `holders` — кто (или какой
 // матч) держит рекорд, при равенстве — все; `detail` — контекст, только
-// когда держатель один. Рекорды со значением 0 не показываются.
+// когда держатель один; `tournaments` — записи, вошедшие в результат.
+// Рекорды со значением 0 не показываются.
 
 function plural(n, [one, few, many]) {
   const mod10 = n % 10;
@@ -35,32 +36,41 @@ function chronological(history) {
   return [...history].sort((a, b) => when(a) - when(b));
 }
 
-// candidates: [{ holder, value, detail }] → карточка с максимумом или null.
+// candidates: [{ holder, value, detail, tournaments }] → карточка с максимумом или null.
 function pickRecord(base, candidates, format) {
   const max = candidates.reduce((m, c) => Math.max(m, c.value), 0);
   if (max <= 0) return null;
   const top = candidates.filter(c => c.value === max);
   const holders = [...new Set(top.map(c => c.holder))];
-  return { ...base, value: format(max), holders, detail: holders.length === 1 ? top[0].detail || null : null };
+  const tournaments = [...new Set(top.flatMap(c => c.tournaments || []))];
+  return { ...base, value: format(max), holders, detail: holders.length === 1 ? top[0].detail || null : null, tournaments };
 }
 
-// Счётчики по игрокам ({ name: n }) → кандидаты для pickRecord.
+// Счётчики по игрокам с источниками → кандидаты для pickRecord.
 function fromCounts(counts) {
-  return Object.entries(counts).map(([holder, value]) => ({ holder, value }));
+  return Object.entries(counts).map(([holder, record]) => ({ holder, ...record }));
 }
 
-function bump(counts, name, by = 1) {
-  counts[name] = (counts[name] || 0) + by;
+function bump(counts, name, entry, by = 1) {
+  const record = counts[name] ||= { value: 0, tournaments: [] };
+  record.value += by;
+  if (!record.tournaments.includes(entry)) record.tournaments.push(entry);
 }
 
 // Самая длинная серия подряд по результатам каждого игрока (в порядке игр).
 function bestStreaks(resultsByPlayer, predicate) {
   const best = {};
   Object.entries(resultsByPlayer).forEach(([name, results]) => {
-    let run = 0;
-    results.forEach(r => {
-      run = predicate(r) ? run + 1 : 0;
-      best[name] = Math.max(best[name] || 0, run);
+    let run = [];
+    best[name] = { value: 0, tournaments: [] };
+    results.forEach(({ result, entry }) => {
+      if (predicate(result)) run.push(entry);
+      else run = [];
+      if (run.length > best[name].value) {
+        best[name] = { value: run.length, tournaments: [...new Set(run)] };
+      } else if (run.length && run.length === best[name].value) {
+        best[name].tournaments = [...new Set([...best[name].tournaments, ...run])];
+      }
     });
   });
   return best;
@@ -70,12 +80,17 @@ function bestStreaks(resultsByPlayer, predicate) {
 function championStreaks(chrono, winnerOf) {
   const best = {};
   let current = null;
-  let run = 0;
+  let run = [];
   chrono.forEach(entry => {
     const winner = winnerOf(entry);
-    run = winner && winner === current ? run + 1 : winner ? 1 : 0;
+    if (winner && winner === current) run.push(entry);
+    else run = winner ? [entry] : [];
     current = winner;
-    if (winner) best[winner] = Math.max(best[winner] || 0, run);
+    if (winner) {
+      const previous = best[winner] || { value: 0, tournaments: [] };
+      if (run.length > previous.value) best[winner] = { value: run.length, tournaments: [...run] };
+      else if (run.length === previous.value) previous.tournaments = [...new Set([...previous.tournaments, ...run])];
+    }
   });
   return best;
 }
@@ -98,24 +113,24 @@ function teamMatchRecords(history) {
     const [s1, s2] = getScores(entry);
     const label = `${teams[0].name} ${s1}:${s2} ${teams[1].name}`;
     const detail = [entry.name, formatMatchDate(entry.playedAt || entry.finishedAt)].filter(Boolean).join(' · ');
-    matches.push({ label, detail, total: s1 + s2, margin: Math.abs(s1 - s2) });
+    matches.push({ label, detail, tournaments: [entry], total: s1 + s2, margin: Math.abs(s1 - s2) });
 
     computeMatchStats(entry).forEach(row => {
-      (results[row.name] ||= []).push(row.result);
-      bump(played, row.name);
-      if (row.goals >= 3) bump(hatTricks, row.name);
-      if (row.ga === 0) bump(cleanSheets, row.name);
-      if (row.ownGoals) bump(ownGoals, row.name, row.ownGoals);
-      goalsInMatch.push({ holder: row.name, value: row.goals, detail: label });
-      assistsInMatch.push({ holder: row.name, value: row.assists, detail: label });
+      (results[row.name] ||= []).push({ result: row.result, entry });
+      bump(played, row.name, entry);
+      if (row.goals >= 3) bump(hatTricks, row.name, entry);
+      if (row.ga === 0) bump(cleanSheets, row.name, entry);
+      if (row.ownGoals) bump(ownGoals, row.name, entry, row.ownGoals);
+      goalsInMatch.push({ holder: row.name, value: row.goals, detail: label, tournaments: [entry] });
+      assistsInMatch.push({ holder: row.name, value: row.assists, detail: label, tournaments: [entry] });
     });
   });
 
   return [
     pickRecord({ id: 'top-match', icon: '🎯', title: 'Самый результативный матч' },
-      matches.map(m => ({ holder: m.label, value: m.total, detail: m.detail })), n => plural(n, GOALS)),
+      matches.map(m => ({ holder: m.label, value: m.total, detail: m.detail, tournaments: m.tournaments })), n => plural(n, GOALS)),
     pickRecord({ id: 'biggest-win', icon: '💥', title: 'Крупнейшая победа' },
-      matches.map(m => ({ holder: m.label, value: m.margin, detail: m.detail })), n => `+${n}`),
+      matches.map(m => ({ holder: m.label, value: m.margin, detail: m.detail, tournaments: m.tournaments })), n => `+${n}`),
     pickRecord({ id: 'goals-in-match', icon: '⚽', title: 'Больше всего голов в матче' }, goalsInMatch, n => plural(n, GOALS)),
     pickRecord({ id: 'hat-tricks', icon: '🎩', title: 'Хет-трики' }, fromCounts(hatTricks), n => plural(n, TIMES)),
     pickRecord({ id: 'assists-in-match', icon: '🅰️', title: 'Больше всего пасов в матче' }, assistsInMatch, n => plural(n, ASSISTS)),
@@ -151,18 +166,18 @@ function bracketRecords(history, cfg) {
     const name = entry.name || 'Турнир';
     playedMatches(entry).forEach(m => {
       const label = `${m.t1} ${m.score1}:${m.score2} ${m.t2}`;
-      matches.push({ label, detail: name, total: m.score1 + m.score2, margin: Math.abs(m.score1 - m.score2) });
+      matches.push({ label, detail: name, tournaments: [entry], total: m.score1 + m.score2, margin: Math.abs(m.score1 - m.score2) });
       [[m.t1, m.score2], [m.t2, m.score1]].forEach(([player, conceded]) => {
         const result = m.winner == null ? 'draw' : m.winner === player ? 'win' : 'loss';
-        (results[player] ||= []).push(result);
-        if (result === 'win' && conceded === 0) bump(cleanWins, player);
-        if (result === 'win' && m.penalties) bump(penaltyWins, player);
+        (results[player] ||= []).push({ result, entry });
+        if (result === 'win' && conceded === 0) bump(cleanWins, player, entry);
+        if (result === 'win' && m.penalties) bump(penaltyWins, player, entry);
       });
     });
     Object.entries(tournamentStats(entry)).forEach(([player, s]) => {
       if (!s) return; // Firebase: разрежённый массив вместо объекта
-      scoredInTournament.push({ holder: player, value: s.goalsFor || 0, detail: name });
-      concededInTournament.push({ holder: player, value: s.goalsAgainst || 0, detail: name });
+      scoredInTournament.push({ holder: player, value: s.goalsFor || 0, detail: name, tournaments: [entry] });
+      concededInTournament.push({ holder: player, value: s.goalsAgainst || 0, detail: name, tournaments: [entry] });
     });
   });
 
@@ -170,9 +185,9 @@ function bracketRecords(history, cfg) {
   const concededTitle = unit === SETS ? 'Больше всего проиграно сетов за турнир' : 'Больше всего пропущено за турнир';
   return [
     pickRecord({ id: 'top-match', icon: '🎯', title: 'Самый результативный матч' },
-      matches.map(m => ({ holder: m.label, value: m.total, detail: m.detail })), n => plural(n, unit)),
+      matches.map(m => ({ holder: m.label, value: m.total, detail: m.detail, tournaments: m.tournaments })), n => plural(n, unit)),
     pickRecord({ id: 'biggest-win', icon: '💥', title: 'Крупнейшая победа' },
-      matches.map(m => ({ holder: m.label, value: m.margin, detail: m.detail })), n => `+${n}`),
+      matches.map(m => ({ holder: m.label, value: m.margin, detail: m.detail, tournaments: m.tournaments })), n => `+${n}`),
     pickRecord({ id: 'win-streak', icon: '🔥', title: 'Серия побед' },
       fromCounts(bestStreaks(results, r => r === 'win')), n => plural(n, MATCHES)),
     pickRecord({ id: 'champion-streak', icon: '🏆', title: 'Чемпион подряд' },
@@ -194,6 +209,8 @@ function americanoRecords(history, cfg) {
   const matches = [];
   const results = {};
   const pointsInTournament = [];
+  const pairWins = {};
+  const pairKey = members => JSON.stringify([...members].sort());
 
   chrono.forEach(entry => {
     const name = entry.name || 'Турнир';
@@ -201,13 +218,14 @@ function americanoRecords(history, cfg) {
       (round.matches || []).forEach(m => {
         if (!m.played) return;
         const label = `${m.pairA.join(' / ')} ${m.score1}:${m.score2} ${m.pairB.join(' / ')}`;
-        matches.push({ label, detail: name, total: m.score1 + m.score2, margin: Math.abs(m.score1 - m.score2) });
-        m.pairA.forEach(p => (results[p] ||= []).push(m.score1 > m.score2 ? 'win' : m.score1 === m.score2 ? 'draw' : 'loss'));
-        m.pairB.forEach(p => (results[p] ||= []).push(m.score2 > m.score1 ? 'win' : m.score1 === m.score2 ? 'draw' : 'loss'));
+        matches.push({ label, detail: name, tournaments: [entry], total: m.score1 + m.score2, margin: Math.abs(m.score1 - m.score2) });
+        m.pairA.forEach(p => (results[p] ||= []).push({ result: m.score1 > m.score2 ? 'win' : m.score1 === m.score2 ? 'draw' : 'loss', entry }));
+        m.pairB.forEach(p => (results[p] ||= []).push({ result: m.score2 > m.score1 ? 'win' : m.score1 === m.score2 ? 'draw' : 'loss', entry }));
+        if (m.score1 !== m.score2) bump(pairWins, pairKey(m.score1 > m.score2 ? m.pairA : m.pairB), entry);
       });
     });
     calcAmericanoStandings(entry).forEach(row => {
-      pointsInTournament.push({ holder: row.name, value: row.pf, detail: name });
+      pointsInTournament.push({ holder: row.name, value: row.pf, detail: name, tournaments: [entry] });
     });
   });
 
@@ -215,11 +233,11 @@ function americanoRecords(history, cfg) {
   const units = cfg.diffLabel === 'Голы' ? GOALS : POINTS;
   return [
     pickRecord({ id: 'top-match', icon: '🎯', title: 'Самый результативный матч' },
-      matches.map(m => ({ holder: m.label, value: m.total, detail: m.detail })), n => plural(n, units)),
+      matches.map(m => ({ holder: m.label, value: m.total, detail: m.detail, tournaments: m.tournaments })), n => plural(n, units)),
     pickRecord({ id: 'biggest-win', icon: '💥', title: 'Крупнейшая победа' },
-      matches.map(m => ({ holder: m.label, value: m.margin, detail: m.detail })), n => `+${n}`),
+      matches.map(m => ({ holder: m.label, value: m.margin, detail: m.detail, tournaments: m.tournaments })), n => `+${n}`),
     pickRecord({ id: 'best-duo', icon: '🤝', title: 'Лучший дуэт' },
-      pairs.map(p => ({ holder: p.members.join(' & '), value: p.w, detail: `${p.w}–${p.l}` })), n => plural(n, WINS)),
+      pairs.map(p => ({ holder: p.members.join(' & '), value: p.w, detail: `${p.w}–${p.l}`, tournaments: pairWins[pairKey(p.members)]?.tournaments || [] })), n => plural(n, WINS)),
     pickRecord({ id: 'win-streak', icon: '🔥', title: 'Серия побед' },
       fromCounts(bestStreaks(results, r => r === 'win')), n => plural(n, MATCHES)),
     pickRecord({ id: 'points-in-tournament', icon: '💯', title: `Больше всего ${cfg.diffGenitive || 'очков'} за турнир` }, pointsInTournament, n => plural(n, units)),
@@ -239,13 +257,13 @@ function ladderRecords(history) {
     const name = entry.name || 'Турнир';
     const rows = buildLadderRanking(entry);
     rows.forEach(row => {
-      repsInTournament.push({ holder: row.name, value: row.totalReps || 0, detail: name });
-      if (row.rank <= 3) bump(podiums, row.name);
-      if (row.totalReps) bump(totalReps, row.name, row.totalReps);
+      repsInTournament.push({ holder: row.name, value: row.totalReps || 0, detail: name, tournaments: [entry] });
+      if (row.rank <= 3) bump(podiums, row.name, entry);
+      if (row.totalReps) bump(totalReps, row.name, entry, row.totalReps);
     });
     const reached = rows.reduce((max, r) => Math.max(max, r.eliminatedRound ?? entry.round ?? 0), 0);
     const champion = entry.winner || computeLadderResult(entry).winner;
-    longest.push({ holder: name, value: reached, detail: champion ? `🏆 ${champion}` : null });
+    longest.push({ holder: name, value: reached, detail: champion ? `🏆 ${champion}` : null, tournaments: [entry] });
   });
 
   return [
