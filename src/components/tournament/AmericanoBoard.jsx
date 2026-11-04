@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { calcAmericanoStandings, calcFootballDoublesStandings, orderedAmericanoRounds } from '../../utils/americano.js';
 import { FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
-import DoublesClubPicker from '../home/DoublesClubPicker.jsx';
 
 function pairName(pair) {
   return pair.join(' / ');
@@ -66,9 +65,7 @@ function AmericanoMatch({ match, editable, hasDraws, onConfirm, onEdit }) {
 
 // Режим 2×2 «Американо»: партнёры меняются каждый раунд (сгенерировано
 // заранее при создании турнира). В футболе зачёт парный, в теннисе — личный.
-export default function AmericanoBoard({ tournament, editable, onConfirm = () => {}, onEdit = () => {}, onDistributeClubs }) {
-  const [clubPool, setClubPool] = useState(tournament.clubPool || null);
-  const [clubError, setClubError] = useState(null);
+export default function AmericanoBoard({ tournament, editable, onConfirm = () => {}, onEdit = () => {} }) {
   const cfg = getSportConfig(tournament.sport);
   const isFootballDoubles = tournament.sport === FOOTBALL_DOUBLES;
   const standings = isFootballDoubles ? calcFootballDoublesStandings(tournament) : calcAmericanoStandings(tournament);
@@ -103,16 +100,7 @@ export default function AmericanoBoard({ tournament, editable, onConfirm = () =>
       </div>
       {isFootballDoubles && <div className="field-hint">Парный зачёт: победа — 3 очка, ничья — 1. Лучшая пара определяется по очкам, разнице голов и забитым голам. При полном равенстве первое место делится.</div>}
       {isLeague && <div className="field-hint">В каждом матче слева — хозяева, справа — гости. Ответные встречи проходят отдельным вторым кругом.</div>}
-
-      {editable && tournament.sport === FOOTBALL_DOUBLES && onDistributeClubs && <>
-        <DoublesClubPicker clubs={clubPool} onChange={setClubPool} playerCount={tournament.players.length} rounds={rounds} allowNone />
-        <button type="button" className="btn btn-secondary" disabled={!clubPool || clubPool.some(club => !club)} onClick={() => {
-          setClubError(null);
-          try { onDistributeClubs(clubPool); } catch (error) { setClubError(error.message); }
-        }}>🎲 Распределить клубы</button>
-        <div className="field-hint">Распределение применяется только к несыгранным матчам.</div>
-        {clubError && <div className="field-hint" style={{ color: 'var(--red)' }}>{clubError}</div>}
-      </>}
+      {isLeague && isFootballDoubles && <div className="field-hint">Каждая пара играет со всеми парами без общих игроков. Все участники получают одинаковое число матчей.</div>}
 
       <div className={tournament.sport === FOOTBALL_DOUBLES ? 'doubles-rounds-grid' : undefined}>
       {rounds.map((round, rIdx) => (

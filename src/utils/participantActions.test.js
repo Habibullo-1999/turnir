@@ -113,7 +113,7 @@ test('doubles addition replays deterministically and preserves the separate retu
   addParticipant(draft, { name: 'Новый' }, 456);
   addParticipant(replay, { name: 'Новый' }, 456);
   assert.deepEqual(draft, replay);
-  assert.equal(draft.rounds.length, before.rounds.length + before.players.length * 2);
+  assert.equal(draft.rounds.length, 30);
   assert.deepEqual(draft.rounds.filter(round => !hasNewPlayer(round)).map(round => round.matches), before.rounds.map(round => round.matches));
   const half = draft.rounds.length / 2;
   assert.ok(draft.rounds.slice(0, half).some(hasNewPlayer));
@@ -196,6 +196,23 @@ test('removing a played addition cancels only their matches and statistics', () 
 });
 
 const club = { club: 'Реал Мадрид', league: 'Ла Лига', flag: '🇪🇸', icon: '' };
+
+test('a doubles addition extends the shared club pool without changing played matches or duplicating clubs', () => {
+  const clubs = Array.from({ length: 4 }, (_, i) => ({ club: `Клуб ${i}` }));
+  const draft = { ...doublesTournament(4, 'league'), clubPool: clubs };
+  Object.assign(draft.rounds[0].matches[0], {
+    played: true, score1: 3, score2: 1, clubA: clubs[0], clubB: clubs[1],
+  });
+  const played = structuredClone(draft.rounds[0].matches[0]);
+  addParticipant(draft, { name: 'Новый', club }, 7);
+  assert.equal(draft.clubPool.length, 5);
+  assert.deepEqual(draft.clubPool[4], club);
+  assert.deepEqual(draft.rounds.flatMap(round => round.matches).find(match => match.played), played);
+  assert.equal(draft.participantMeta['Новый'], undefined);
+  const duplicate = { ...doublesTournament(4, 'league'), clubPool: clubs };
+  addParticipant(duplicate, { name: 'Новый', club: { club: ' клуб 0 ' } }, 7);
+  assert.equal(duplicate.clubPool.length, 4);
+});
 
 function tournament(format, count = 4) {
   return {

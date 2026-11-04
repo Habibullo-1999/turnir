@@ -85,10 +85,10 @@ export async function getTournament(id) {
   return tournament;
 }
 
-async function listAll() {
+export async function listAll() {
   const data = await fbGet('/tournaments');
   if (!data) return [];
-  return Object.values(data);
+  return Object.values(data).sort((a, b) => sortKey(b) - sortKey(a));
 }
 
 // Migrated tournaments (from the old /state, /saves, /history paths) never
@@ -101,12 +101,12 @@ function sortKey(t) {
 
 export async function listActive() {
   const all = await listAll();
-  return all.filter(t => t.status === 'active').sort((a, b) => sortKey(b) - sortKey(a));
+  return all.filter(t => t.status === 'active');
 }
 
 export async function listHistory() {
   const all = await listAll();
-  return all.filter(t => t.status === 'finished').sort((a, b) => sortKey(b) - sortKey(a));
+  return all.filter(t => t.status === 'finished');
 }
 
 // Serialize deletion with autosaves and reject late writes to prevent a

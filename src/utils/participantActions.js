@@ -1,6 +1,7 @@
 import { buildRounds, nextPow2, propagateWinners, shuffle } from './bracket.js';
 import { hasBracketStarted } from './manualRearrange.js';
-import { FOOTBALL, getSportConfig } from './sportConfig.js';
+import { FOOTBALL, FOOTBALL_DOUBLES, getSportConfig } from './sportConfig.js';
+import { completeFootballDoublesLeague } from './footballDoublesSchedule.js';
 import { distributeDoublesClubs } from './doublesClubs.js';
 import { interleaveAmericanoRounds, orderedAmericanoRounds } from './americano.js';
 
@@ -64,10 +65,21 @@ export function addParticipant(draft, { name, club = null, groupIndex = 0 }, see
       players,
       rounds,
     };
+    if (draft.sport === FOOTBALL_DOUBLES && draft.format === 'league') {
+      completeFootballDoublesLeague(updated);
+    }
     // Reassign unplayed clubs for their new neighbours; played fixtures and
     // their club assignments stay untouched.
-    if (draft.clubPool) distributeDoublesClubs(updated, draft.clubPool, seed);
+    if (draft.clubPool) {
+      const clubs = [...draft.clubPool];
+      const clubKey = value => value.club.trim().toLocaleLowerCase('ru-RU');
+      if (draft.sport === FOOTBALL_DOUBLES && club && !clubs.some(existing => clubKey(existing) === clubKey(club))) {
+        clubs.push(club);
+      }
+      distributeDoublesClubs(updated, clubs, seed);
+    }
     draft.rounds = updated.rounds;
+    if (updated.clubPool) draft.clubPool = updated.clubPool;
   } else if (draft.format === 'playoff') {
     const seeded = draft.rounds[0].flatMap(match => [match.t1, match.t2]);
     const byeIndex = seeded.indexOf('BYE');

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ParticipantRow from './ParticipantRow.jsx';
 import ClubAutocomplete from './ClubAutocomplete.jsx';
 import DoublesClubPicker from './DoublesClubPicker.jsx';
@@ -6,7 +6,7 @@ import FormatPicker from './FormatPicker.jsx';
 import { useKnownPlayers } from '../../hooks/useKnownPlayers.js';
 import { buildTournamentPayload } from '../../utils/createTournamentPayload.js';
 import { useTournament } from '../../context/TournamentContext.jsx';
-import { listHistory } from '../../services/tournaments.js';
+import { listAll } from '../../services/tournaments.js';
 import { FOOTBALL, FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
 import { assignRandomClubs, getLastClubsByPlayer } from '../../utils/randomClubAssignment.js';
 import { MIN_TEAM_LOG_PLAYERS } from '../../utils/teamMatchLog.js';
@@ -30,12 +30,18 @@ export default function TournamentSetupForm({ sport, onCreated }) {
   const [format, setFormat] = useState('playoff');
   const [selectedClubs, setSelectedClubs] = useState([]);
   const [clubPool, setClubPool] = useState(null);
-  const [history, setHistory] = useState([]);
+  const [tournaments, setTournaments] = useState([]);
   const [error, setError] = useState(null);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    listHistory().then(setHistory).catch(() => setHistory([]));
+    let cancelled = false;
+    listAll().then(list => {
+      if (!cancelled) setTournaments(list);
+    }).catch(() => {
+      if (!cancelled) setTournaments([]);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   // Сразу открываем необходимое для выбранного режима количество полей.
@@ -47,7 +53,9 @@ export default function TournamentSetupForm({ sport, onCreated }) {
     setFormat(supportsDoublesLeague ? 'league' : 'playoff');
   }, [sport]);
 
-  const knownPlayers = useKnownPlayers(history, sport);
+  const history = useMemo(() => tournaments
+    .filter(tournament => tournament.status === 'finished'), [tournaments]);
+  const knownPlayers = useKnownPlayers(cfg.engine === 'americano' ? tournaments : history, sport);
   const existingNames = rows.map(r => r.name.trim()).filter(Boolean);
 
   useEffect(() => {

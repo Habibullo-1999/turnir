@@ -108,7 +108,7 @@ test('league adds a separate return leg with the same pairs and reversed home/aw
   for (const count of [4, 5, 6, 8]) {
     const draft = tournament(count, 'league');
     assert.equal(draft.format, 'league');
-    assert.equal(draft.rounds.length, (count % 2 ? count : count - 1) * 2);
+    assert.equal(draft.rounds.flatMap(round => round.matches).length, count * (count - 1) * (count - 2) * (count - 3) / 4);
     assertReturnLeg(draft);
   }
 });

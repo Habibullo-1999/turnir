@@ -320,6 +320,13 @@ textarea { min-height: 140px; line-height: 1.7; }
 .participant-row .p-name:focus { border-color: var(--green-dim); box-shadow: 0 0 0 2px var(--green-glow); }
 .add-participant-form .participant-row { flex-wrap:wrap; }
 .add-participant-form .p-name, .add-participant-form .club-selector-wrap { flex-basis:180px; }
+.add-participant-form .participant-row-club { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:end; }
+.add-participant-form .participant-row-club > * { min-width:0; width:100%; }
+.add-participant-form .participant-row-club .p-name { box-sizing:border-box; }
+.add-participant-form .participant-row-club .p-club { font-size:0.9rem; }
+@media (max-width:600px) {
+  .add-participant-form .participant-row-club { grid-template-columns:minmax(0,1fr); }
+}
 .participant-add-error { margin-top:10px;color:var(--red);font-size:0.85rem; }
 .participant-management-list { display:flex;flex-direction:column;gap:8px; }
 .participant-management-row { display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border); }

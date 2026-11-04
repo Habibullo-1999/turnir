@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ClubAutocomplete from '../home/ClubAutocomplete.jsx';
 import { getParticipantAdditionError } from '../../utils/participantActions.js';
-import { getSportConfig } from '../../utils/sportConfig.js';
+import { FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
 
 export default function AddParticipantForm({ tournament, onAdd }) {
   const [name, setName] = useState('');
@@ -10,6 +10,7 @@ export default function AddParticipantForm({ tournament, onAdd }) {
   const [error, setError] = useState(null);
   const cfg = getSportConfig(tournament.sport);
   const isAmericano = cfg.engine === 'americano';
+  const canAddClub = tournament.sport === FOOTBALL_DOUBLES && tournament.clubPool?.length > 0;
   const unavailable = getParticipantAdditionError(tournament);
   const chooseGroup = !isAmericano && tournament.format !== 'playoff' && tournament.groups.length > 1;
 
@@ -30,7 +31,7 @@ export default function AddParticipantForm({ tournament, onAdd }) {
       <div className="card-title">Добавить участника</div>
       {unavailable ? <div className="field-hint">{unavailable}</div> : (
         <form className="add-participant-form" onSubmit={handleSubmit}>
-          <div className="participant-row">
+          <div className={`participant-row${canAddClub ? ' participant-row-club' : ''}`}>
             <input
               type="text"
               className="p-name"
@@ -41,6 +42,10 @@ export default function AddParticipantForm({ tournament, onAdd }) {
               required
             />
             {cfg.hasClub && <ClubAutocomplete club={club} onSelect={setClub} />}
+            {canAddClub && <div>
+              <div className="field-hint">Добавить клуб в набор (необязательно)</div>
+              <ClubAutocomplete club={club} onSelect={setClub} />
+            </div>}
           </div>
           <div className="rearrange-row">
             {chooseGroup && (
@@ -55,6 +60,7 @@ export default function AddParticipantForm({ tournament, onAdd }) {
           </div>
           {tournament.format === 'playoff' && <div className="field-hint">Участник займёт место BYE. Если свободных мест нет, сетка расширится.</div>}
           {isAmericano && <div className="field-hint">Добавятся новые матчи с участником. Существующие матчи и результаты сохранятся.</div>}
+          {canAddClub && <div className="field-hint">Выбранный клуб пополнит общий набор для пар, без закрепления за игроком. Клубы сыгранных матчей сохранятся.</div>}
           {error && <div className="participant-add-error" role="alert">{error}</div>}
         </form>
       )}

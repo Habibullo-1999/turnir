@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { FOOTBALL } from '../utils/sportConfig.js';
 
 // Derives the "known players" chip list (name + last-seen club meta) from
-// finished tournaments of the same sport, so returning players can be added
-// to a new tournament with one click instead of retyping their name/club.
+// tournaments of the same sport, so returning players can be added with
+// one click. The caller can include active tournaments as well as history.
 export function useKnownPlayers(history, sport = FOOTBALL) {
   return useMemo(() => {
     const sameSport = history.filter(entry => (entry.sport || FOOTBALL) === sport);
@@ -11,7 +11,7 @@ export function useKnownPlayers(history, sport = FOOTBALL) {
     sameSport.forEach(entry => (entry.players || []).forEach(p => names.add(p)));
 
     return [...names].sort().map(name => {
-      // history is newest-first (see listHistory()), so the first match here
+      // Tournaments are newest-first, so the first match here
       // is the player's most recently used club.
       let meta = null;
       for (let i = 0; i < sameSport.length; i++) {

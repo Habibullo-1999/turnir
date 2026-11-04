@@ -9,6 +9,8 @@ import TurnikLadder from './TurnikLadder.jsx';
 import AmericanoBoard from './AmericanoBoard.jsx';
 import TeamMatchBoard from './TeamMatchBoard.jsx';
 import AddParticipantForm from './AddParticipantForm.jsx';
+import ChangeDoublesFormat from './ChangeDoublesFormat.jsx';
+import { changeDoublesFormat } from '../../utils/changeDoublesFormat.js';
 import ParticipantRemoval from './ParticipantRemoval.jsx';
 import SaveIndicator from '../SaveIndicator.jsx';
 import DeleteTournamentButton from '../DeleteTournamentButton.jsx';
@@ -20,13 +22,12 @@ import {
 import { swapBracketSlots, movePlayerToGroup } from '../../utils/manualRearrange.js';
 import { markPassed, markFailed, undoMark, advanceRound, reopenLadder } from '../../utils/ladderActions.js';
 import { confirmAmericanoScore, clearAmericanoScore } from '../../utils/americanoActions.js';
-import { distributeDoublesClubs } from '../../utils/doublesClubs.js';
 import { getTournamentWinner } from '../../utils/tournamentWinner.js';
 import {
   renameTeam, setScore, setPlayedAt, bumpGoal, bumpAssist, bumpOwnGoal, movePlayer, addPlayer,
   reshuffleTeams, finishMatch, reopenMatch,
 } from '../../utils/teamMatchActions.js';
-import { FOOTBALL, getSportConfig } from '../../utils/sportConfig.js';
+import { FOOTBALL, FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
 import { addParticipant } from '../../utils/participantActions.js';
 import { removeParticipant } from '../../utils/removeParticipant.js';
 import { DRAW_LABEL, getScores, matchResult, pluralGoals } from '../../utils/teamMatchLog.js';
@@ -208,6 +209,18 @@ export default function TournamentPage({ onHome }) {
         </div>
       )}
 
+      {editable && tournament.sport === FOOTBALL_DOUBLES && <ChangeDoublesFormat
+        key={`format-${tournament.id}`}
+        tournament={tournament}
+        onChange={format => {
+          const seed = Math.floor(Math.random() * 2 ** 32);
+          changeDoublesFormat(structuredClone(tournament), format, seed);
+          mutate(draft => changeDoublesFormat(draft, format, seed));
+          setPenaltyCtx(null);
+          setEditCtx(null);
+        }}
+      />}
+
       {isTurnik && (
         <TurnikLadder
           tournament={tournament}
@@ -230,10 +243,6 @@ export default function TournamentPage({ onHome }) {
           editable={editable}
           onConfirm={handleAmericanoConfirm}
           onEdit={requestAmericanoEdit}
-          onDistributeClubs={clubs => {
-            const seed = Math.floor(Math.random() * 2 ** 32);
-            mutate(draft => distributeDoublesClubs(draft, clubs, seed));
-          }}
         />
       )}
 
