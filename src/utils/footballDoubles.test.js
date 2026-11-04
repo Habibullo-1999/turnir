@@ -131,12 +131,13 @@ test('return matches have independent scores and league finishes only after both
   }
 });
 
-test('removing a league player rebuilds both legs', () => {
+test('removing a league player retains unaffected fixtures in both legs', () => {
   const draft = tournament(6, 'league');
   const removed = draft.players[0];
+  const kept = structuredClone(draft.rounds.flatMap(round => round.matches).filter(match => ![...match.pairA, ...match.pairB].includes(removed)));
   removeParticipant(draft, removed);
   assert.equal(draft.format, 'league');
-  assert.equal(draft.rounds.length, 10);
+  assert.deepEqual(draft.rounds.flatMap(round => round.matches), kept);
   assertReturnLeg(draft);
   for (const round of draft.rounds) {
     assert.ok(!round.byes.includes(removed));

@@ -155,8 +155,12 @@ export default function TournamentPage({ onHome }) {
     mutate(draft => addPlayer(draft, name, side));
   }
   function handleAddParticipant(participant) {
-    addParticipant(structuredClone(tournament), participant);
-    mutate(draft => addParticipant(draft, participant));
+    const seed = Math.floor(Math.random() * 2 ** 32);
+    addParticipant(structuredClone(tournament), participant, seed);
+    mutate(draft => addParticipant(draft, participant, seed));
+    setPenaltyCtx(null);
+    setEditCtx(null);
+    setAdvanceError(null);
   }
   function handleRemoveParticipant(player) {
     removeParticipant(structuredClone(tournament), player);
@@ -215,6 +219,10 @@ export default function TournamentPage({ onHome }) {
         />
       )}
 
+      {editable && isAmericano && (
+        <AddParticipantForm key={`add-${tournament.id}`} tournament={tournament} onAdd={handleAddParticipant} />
+      )}
+
       {isAmericano && (
         <AmericanoBoard
           key={`${tournament.id}-${tournament.players.length}`}
@@ -249,7 +257,7 @@ export default function TournamentPage({ onHome }) {
       {isBracketGroup && (
         <>
           {editable && cfg.sport === FOOTBALL && (
-            <AddParticipantForm key={tournament.id} tournament={tournament} onAdd={handleAddParticipant} />
+            <AddParticipantForm key={`add-${tournament.id}`} tournament={tournament} onAdd={handleAddParticipant} />
           )}
           {isGroupFormat && (
             <GroupStage
@@ -288,7 +296,7 @@ export default function TournamentPage({ onHome }) {
         />
       )}
 
-      {editable && <ParticipantRemoval key={tournament.id} tournament={tournament} onRemove={handleRemoveParticipant} />}
+      {editable && <ParticipantRemoval key={`remove-${tournament.id}`} tournament={tournament} onRemove={handleRemoveParticipant} />}
 
       <div className="tournament-delete-controls">
         <DeleteTournamentButton tournament={tournament} onDeleted={onHome} />

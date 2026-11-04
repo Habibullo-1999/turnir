@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef } from 'react';
 
-export default function ConfirmDeleteModal({ title, description, error, busy = false, onConfirm, onClose }) {
+export default function ConfirmDeleteModal({ title, description, error, busy = false, confirmLabel = 'Удалить', onConfirm, onClose }) {
   const dialogRef = useRef(null);
   const cancelRef = useRef(null);
   const titleId = useId();
@@ -26,7 +26,7 @@ export default function ConfirmDeleteModal({ title, description, error, busy = f
       <div id={descriptionId} className="penalty-modal-subtitle">{description}</div>
       {error && <div className="confirm-delete-error" role="alert">{error}</div>}
       <div className="confirm-delete-controls">
-        <button type="button" className="btn btn-danger" disabled={busy} onClick={onConfirm}>{busy ? 'Удаление…' : 'Удалить'}</button>
+        <button type="button" className="btn btn-danger" disabled={busy} onClick={onConfirm}>{busy ? 'Удаление…' : confirmLabel}</button>
         <button ref={cancelRef} type="button" className="btn btn-secondary" disabled={busy} onClick={onClose}>Отмена</button>
       </div>
     </dialog>

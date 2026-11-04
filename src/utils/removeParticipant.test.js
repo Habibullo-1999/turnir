@@ -139,16 +139,20 @@ test('supports Firebase object lists and nullable goal maps', () => {
   assert.equal(draft.teams[0].players.includes(player), false);
 });
 
-test('rebuilds Americano without deleted participants or stale results', () => {
-  const draft = tournament('table-tennis-2x2');
+test('removes only Americano matches involving the participant and preserves unrelated results', () => {
+  const draft = tournament('table-tennis-2x2', undefined, 8);
   const player = draft.players[0];
-  Object.assign(draft.rounds[0].matches[0], { played: true, score1: 3, score2: 1 });
+  for (const round of draft.rounds) for (const match of round.matches) {
+    Object.assign(match, { played: true, score1: 3, score2: 1 });
+  }
+  const kept = structuredClone(draft.rounds.flatMap(round => round.matches).filter(match => ![...match.pairA, ...match.pairB].includes(player)));
   removeParticipant(draft, player);
-  assert.equal(draft.players.length, 3);
-  assert.ok(draft.rounds.length > 0);
-  assert.ok(draft.rounds.every(round => !round.byes.includes(player) && round.matches.every(match => !match.played && match.score1 === null && ![...match.pairA, ...match.pairB].includes(player))));
-  assert.equal(calcAmericanoStandings(draft).length, 3);
-  assert.ok(calcAmericanoStandings(draft).every(row => row.played === 0));
+  assert.equal(draft.players.length, 7);
+  assert.ok(kept.length > 0);
+  assert.deepEqual(draft.rounds.flatMap(round => round.matches), kept);
+  assert.ok(draft.rounds.every(round => !round.byes.includes(player)));
+  assert.equal(calcAmericanoStandings(draft).length, 7);
+  assert.ok(calcAmericanoStandings(draft).some(row => row.played > 0));
 });
 
 test('removes ladder marks, preserving remaining participants and completing a decided ladder', () => {

@@ -1,10 +1,31 @@
 import { shuffle } from './bracket.js';
 import { FOOTBALL_DOUBLES } from './sportConfig.js';
+import { americanoReturnPairs, orderedAmericanoRounds } from './americano.js';
 
 const clubKey = club => String(club?.club || '').trim().toLocaleLowerCase('ru-RU');
 
-export function minimumDoublesClubs(playerCount) {
-  return Math.max(4, Math.floor(playerCount / 4) * 2 + 2);
+function copyReversedClubs(source, target) {
+  for (const [from, to] of [['clubA', 'clubB'], ['clubB', 'clubA']]) {
+    if (source[from]) target[to] = { ...source[from] };
+    else delete target[to];
+  }
+}
+
+export function minimumDoublesClubs(playerCount, rounds) {
+  return rounds
+    ? Math.max(4, ...rounds.map(round => round.matches.length * 2 + 2))
+    : Math.max(4, Math.floor(playerCount / 4) * 2 + 2);
+}
+
+// Repair unplayed legacy rematches without changing recorded match history.
+export function synchronizeDoublesReturnClubs(draft) {
+  if (draft.sport !== FOOTBALL_DOUBLES || draft.format !== 'league') return;
+  for (const { first, second } of americanoReturnPairs(draft)) {
+    if (first.played && second.played) continue;
+    const source = second.played ? second : first;
+    const target = second.played ? first : second;
+    copyReversedClubs(source, target);
+  }
 }
 
 // Seed передаётся из обработчика: повторное применение мутации при сохранении
@@ -12,10 +33,47 @@ export function minimumDoublesClubs(playerCount) {
 export function distributeDoublesClubs(draft, clubs, seed) {
   if (draft.sport !== FOOTBALL_DOUBLES) throw new Error('Клубы пар доступны только в футболе 2×2.');
   if (draft.status === 'finished') throw new Error('Сначала верните турнир в работу.');
-  const minimum = minimumDoublesClubs(draft.players.length);
+  // Additional fixtures can be appended one at a time; the pool depends on
+  // simultaneous teams in the actual schedule, not just the roster size.
+  const minimum = minimumDoublesClubs(draft.players.length, draft.rounds || []);
   if (!clubs || clubs.some(club => !clubKey(club))) throw new Error('Выберите клуб в каждом поле.');
   if (new Set(clubs.map(clubKey)).size !== clubs.length) throw new Error('Клубы в наборе не должны повторяться.');
   if (clubs.length < minimum) throw new Error(`Для смены клубов выберите минимум ${minimum} разных клубов.`);
+
+  if (draft.format === 'league') {
+    const updated = structuredClone(draft);
+    const pairs = americanoReturnPairs(updated);
+    const rounds = orderedAmericanoRounds(updated);
+    const firstLeg = { ...updated, format: undefined, rounds: rounds.slice(0, rounds.length / 2) };
+    const frozen = [];
+    for (const { first, second } of pairs) {
+      if (!second.played) continue;
+      if (first.played) {
+        if (clubKey(first.clubA) !== clubKey(second.clubB) || clubKey(first.clubB) !== clubKey(second.clubA)) {
+          throw new Error('Клубы в сыгранных прямом и ответном матчах различаются. Сначала исправьте эти встречи.');
+        }
+      } else {
+        frozen.push({ first, played: first.played });
+        first.played = true;
+        copyReversedClubs(second, first);
+      }
+    }
+    distributeDoublesClubs(firstLeg, clubs, seed);
+    const assigned = firstLeg.rounds.flatMap(round => round.matches);
+    pairs.forEach(({ first, second }, index) => {
+      for (const field of ['clubA', 'clubB']) {
+        if (assigned[index][field]) first[field] = { ...assigned[index][field] };
+        else delete first[field];
+      }
+      if (!second.played) {
+        copyReversedClubs(first, second);
+      }
+    });
+    frozen.forEach(({ first, played }) => { first.played = played; });
+    draft.rounds = updated.rounds;
+    draft.clubPool = clubs.map(club => ({ ...club }));
+    return;
+  }
 
   let state = seed >>> 0;
   const random = () => {

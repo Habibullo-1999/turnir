@@ -30,6 +30,37 @@ function fakeNode(initial) {
 
 const noop = () => {};
 
+test('loading repairs unplayed return clubs without writing and the next edit saves the repair', async t => {
+  const first = {
+    pairA: ['A', 'B'], pairB: ['C', 'D'], played: true, score1: 3, score2: 1,
+    clubA: { club: 'Арсенал' }, clubB: { club: 'Барселона' },
+  };
+  const second = {
+    pairA: ['C', 'D'], pairB: ['A', 'B'], played: false, score1: null, score2: null,
+    clubA: { club: 'Старый клуб 1' }, clubB: { club: 'Старый клуб 2' },
+  };
+  const initial = {
+    id: 'legacy-doubles-clubs', sport: 'football-2x2', format: 'league', status: 'active',
+    players: ['A', 'B', 'C', 'D'], rounds: [{ matches: [first], byes: [] }, { matches: [second], byes: [] }],
+  };
+  const node = fakeNode(structuredClone(initial));
+  const methods = [];
+  t.mock.method(globalThis, 'fetch', (...args) => {
+    methods.push(args[1]?.method || 'GET');
+    return node.fetch(...args);
+  });
+  const loaded = await getTournament(initial.id);
+  assert.deepEqual(methods, ['GET']);
+  assert.deepEqual(node.value, initial);
+  assert.deepEqual(loaded.rounds[0].matches[0], first);
+  assert.deepEqual(loaded.rounds[1].matches[0].clubA, first.clubB);
+  assert.deepEqual(loaded.rounds[1].matches[0].clubB, first.clubA);
+  const saved = await updateTournament(initial.id, draft => { draft.name = 'Новое имя'; });
+  assert.deepEqual(methods, ['GET', 'PUT']);
+  assert.deepEqual(saved.rounds, loaded.rounds);
+  assert.deepEqual(node.value.rounds, loaded.rounds);
+});
+
 test('deletes both active and finished tournaments at their own paths', async t => {
   const calls = [];
   t.mock.method(globalThis, 'fetch', async (url, options) => {

@@ -1,10 +1,9 @@
 import { buildRounds, isRealMatch, propagateWinners } from './bracket.js';
-import { buildAmericanoRounds } from './americano.js';
-import { distributeDoublesClubs } from './doublesClubs.js';
 import { computeTournamentResult, isTournamentComplete } from './computeStats.js';
 import { computeLadderResult, isLadderComplete } from './ladder.js';
 import { creditedGoals, getScores, getTeams } from './teamMatchLog.js';
 import { getSportConfig } from './sportConfig.js';
+import { computeAmericanoResult, isAmericanoComplete } from './americano.js';
 
 function playerList(tournament) {
   const players = tournament.players || [];
@@ -35,7 +34,7 @@ export function participantRemovalDescription(tournament) {
     case 'team-match-log':
       return 'Участник и его голы, пасы и автоголы будут удалены. Счёт команды уменьшится на его голы, а счёт соперника — на его автоголы.';
     case 'americano':
-      return 'Расписание Американо будет сформировано заново. Все результаты матчей будут сброшены.';
+      return 'Участник и матчи с его участием будут удалены. Результаты остальных матчей сохранятся.';
     case 'turnik-ladder':
       return 'Участник и его результаты подтягиваний будут удалены. Результаты остальных сохранятся.';
     default:
@@ -99,12 +98,11 @@ export function removeParticipant(draft, player) {
     }
     draft.scores = scores;
   } else if (engine === 'americano') {
-    const cfg = getSportConfig(draft.sport);
-    draft.rounds = buildAmericanoRounds(draft.players, {
-      allowUnevenTeams: cfg.allowUnevenTeams,
-      double: draft.format === 'league' && cfg.doubleRoundRobinLeague,
-    });
-    if (draft.clubPool) distributeDoublesClubs(draft, draft.clubPool, 0);
+    draft.rounds = (draft.rounds || []).map(round => {
+      const matches = round.matches.filter(match => ![...match.pairA, ...match.pairB].includes(player));
+      const scheduled = new Set(matches.flatMap(match => [...match.pairA, ...match.pairB]));
+      return { ...round, matches, byes: draft.players.filter(name => !scheduled.has(name)) };
+    }).filter(round => round.matches.length > 0);
   } else if (engine === 'bracket-group') {
     (draft.groups || []).forEach(group => {
       group.players = group.players.filter(name => name !== player);
@@ -119,9 +117,11 @@ export function removeParticipant(draft, player) {
   delete draft.finishedAt;
   delete draft.date;
   const complete = engine === 'bracket-group' ? isTournamentComplete(draft)
-    : engine === 'turnik-ladder' ? isLadderComplete(draft) : false;
+    : engine === 'turnik-ladder' ? isLadderComplete(draft)
+    : engine === 'americano' ? isAmericanoComplete(draft) : false;
   if (complete) {
-    const result = engine === 'turnik-ladder' ? computeLadderResult(draft) : computeTournamentResult(draft);
+    const result = engine === 'turnik-ladder' ? computeLadderResult(draft)
+      : engine === 'americano' ? computeAmericanoResult(draft) : computeTournamentResult(draft);
     draft.status = 'finished';
     draft.winner = result.winner;
     if (result.stats) draft.stats = result.stats;

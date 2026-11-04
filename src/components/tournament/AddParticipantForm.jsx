@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import ClubAutocomplete from '../home/ClubAutocomplete.jsx';
 import { getParticipantAdditionError } from '../../utils/participantActions.js';
+import { getSportConfig } from '../../utils/sportConfig.js';
 
 export default function AddParticipantForm({ tournament, onAdd }) {
   const [name, setName] = useState('');
   const [club, setClub] = useState(null);
   const [groupIndex, setGroupIndex] = useState('');
   const [error, setError] = useState(null);
+  const cfg = getSportConfig(tournament.sport);
+  const isAmericano = cfg.engine === 'americano';
   const unavailable = getParticipantAdditionError(tournament);
-  const chooseGroup = tournament.format !== 'playoff' && tournament.groups.length > 1;
+  const chooseGroup = !isAmericano && tournament.format !== 'playoff' && tournament.groups.length > 1;
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -37,7 +40,7 @@ export default function AddParticipantForm({ tournament, onAdd }) {
               onChange={event => setName(event.target.value)}
               required
             />
-            <ClubAutocomplete club={club} onSelect={setClub} />
+            {cfg.hasClub && <ClubAutocomplete club={club} onSelect={setClub} />}
           </div>
           <div className="rearrange-row">
             {chooseGroup && (
@@ -51,6 +54,7 @@ export default function AddParticipantForm({ tournament, onAdd }) {
             </button>
           </div>
           {tournament.format === 'playoff' && <div className="field-hint">Участник займёт место BYE. Если свободных мест нет, сетка расширится.</div>}
+          {isAmericano && <div className="field-hint">Добавятся новые матчи с участником. Существующие матчи и результаты сохранятся.</div>}
           {error && <div className="participant-add-error" role="alert">{error}</div>}
         </form>
       )}

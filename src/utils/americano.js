@@ -1,7 +1,60 @@
 import { shuffle } from './bracket.js';
-import { FOOTBALL_DOUBLES } from './sportConfig.js';
+import { FOOTBALL_DOUBLES, getSportConfig } from './sportConfig.js';
 
 const BYE = null;
+
+// Keep completed rounds at the front and spread new rounds between the
+// remaining fixtures without changing the relative order of existing rounds.
+export function interleaveAmericanoRounds(existing, added) {
+  if (!existing.length) return added;
+  const firstUnplayed = existing.findIndex(round => round.matches.some(match => !match.played));
+  const start = firstUnplayed < 0 ? existing.length - 1 : Math.max(0, firstUnplayed - 1);
+  const anchors = existing.slice(start);
+  const rounds = existing.slice(0, start);
+  anchors.forEach((round, index) => {
+    rounds.push(round, ...added.slice(
+      Math.ceil(index * added.length / anchors.length),
+      Math.ceil((index + 1) * added.length / anchors.length),
+    ));
+  });
+  return rounds;
+}
+
+// Older saved leagues kept new-player fixtures in a separate block. Display
+// and extend them in the regular legs while retaining the original match data.
+export function orderedAmericanoRounds(tournament) {
+  const rounds = tournament.rounds || [];
+  if (!rounds.some(round => round.additionalLeg)) return rounds;
+  const original = rounds.filter(round => !round.additionalLeg);
+  const half = original.length / 2;
+  return [
+    ...interleaveAmericanoRounds(original.slice(0, half), rounds.filter(round => round.additionalLeg === 1)),
+    ...interleaveAmericanoRounds(original.slice(half), rounds.filter(round => round.additionalLeg === 2)),
+  ];
+}
+
+export function americanoReturnPairs(tournament) {
+  if (tournament.format !== 'league' || !getSportConfig(tournament.sport).doubleRoundRobinLeague) return [];
+  const rounds = orderedAmericanoRounds(tournament);
+  if (rounds.length % 2) throw new Error('В расписании отсутствуют ответные встречи.');
+  const half = rounds.length / 2;
+  const key = (a, b) => JSON.stringify([[...a].sort(), [...b].sort()]);
+  const returns = new Map();
+  rounds.slice(half).flatMap(round => round.matches).forEach(match => {
+    const signature = key(match.pairB, match.pairA);
+    if (!returns.has(signature)) returns.set(signature, []);
+    returns.get(signature).push(match);
+  });
+  const pairs = rounds.slice(0, half).flatMap(round => round.matches).map(first => {
+    const second = returns.get(key(first.pairA, first.pairB))?.shift();
+    if (!second) throw new Error('В расписании отсутствует ответный матч для одной из пар.');
+    return { first, second };
+  });
+  if ([...returns.values()].some(matches => matches.length)) {
+    throw new Error('В расписании есть ответный матч без первой встречи.');
+  }
+  return pairs;
+}
 
 // Standard round-robin "circle method", applied to PARTNERSHIPS instead of
 // opponents: for N players it produces N-1 rounds, each a perfect matching
@@ -28,8 +81,8 @@ function circlePartnerRounds(players) {
 // partnerships are randomly matched up against each other 2-vs-2; a leftover
 // unpaired player is folded into a 1-vs-2 match against a leftover
 // partnership rather than sitting out, whenever both exist that round.
-export function buildAmericanoRounds(players, { allowUnevenTeams = true, double = false } = {}) {
-  const shuffled = shuffle(players);
+export function buildAmericanoRounds(players, { allowUnevenTeams = true, double = false, random = Math.random } = {}) {
+  const shuffled = shuffle(players, random);
   const partnerRounds = circlePartnerRounds(shuffled);
 
   const rounds = partnerRounds.map(pairs => {
@@ -41,7 +94,7 @@ export function buildAmericanoRounds(players, { allowUnevenTeams = true, double 
       else partnerships.push([a, b]);
     });
 
-    const shuffledPartnerships = shuffle(partnerships);
+    const shuffledPartnerships = shuffle(partnerships, random);
     const matches = [];
     let i = 0;
     for (; i + 1 < shuffledPartnerships.length; i += 2) {
@@ -97,7 +150,8 @@ export function calcAmericanoStandings(tournament) {
 }
 
 export function isAmericanoComplete(tournament) {
-  return (tournament.rounds || []).length > 0 && tournament.rounds.every(r => r.matches.every(m => m.played));
+  const matches = (tournament.rounds || []).flatMap(round => round.matches);
+  return matches.length > 0 && matches.every(match => match.played);
 }
 
 export function computeAmericanoResult(tournament) {

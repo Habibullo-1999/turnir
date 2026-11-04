@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { calcAmericanoStandings, calcFootballDoublesStandings } from '../../utils/americano.js';
+import { calcAmericanoStandings, calcFootballDoublesStandings, orderedAmericanoRounds } from '../../utils/americano.js';
 import { FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
 import DoublesClubPicker from '../home/DoublesClubPicker.jsx';
 
@@ -23,12 +23,12 @@ function AmericanoMatch({ match, editable, hasDraws, onConfirm, onEdit }) {
   const [error, setError] = useState(null);
 
   function handleConfirm() {
-    const p1 = parseInt(s1 || '0', 10);
-    const p2 = parseInt(s2 || '0', 10);
-    if (Number.isNaN(p1) || Number.isNaN(p2)) { setError('Введите корректный счёт.'); return; }
+    const p1 = Number(s1 || '0');
+    const p2 = Number(s2 || '0');
+    if (![p1, p2].every(score => Number.isInteger(score) && score >= 0 && score <= 99)) { setError('Введите целый счёт от 0 до 99.'); return; }
     if (!hasDraws && p1 === p2) { setError('Ничья невозможна — введите разные значения.'); return; }
     setError(null);
-    onConfirm(p1, p2);
+    try { onConfirm(p1, p2); } catch (error) { setError(error.message); }
   }
 
   const w1 = match.played && match.score1 > match.score2;
@@ -73,7 +73,8 @@ export default function AmericanoBoard({ tournament, editable, onConfirm = () =>
   const isFootballDoubles = tournament.sport === FOOTBALL_DOUBLES;
   const standings = isFootballDoubles ? calcFootballDoublesStandings(tournament) : calcAmericanoStandings(tournament);
   const isLeague = tournament.format === 'league' && cfg.doubleRoundRobinLeague;
-  const roundsPerLeg = (tournament.rounds || []).length / 2;
+  const rounds = orderedAmericanoRounds(tournament);
+  const roundsPerLeg = rounds.length / 2;
 
   return (
     <div className="card">
@@ -104,7 +105,7 @@ export default function AmericanoBoard({ tournament, editable, onConfirm = () =>
       {isLeague && <div className="field-hint">В каждом матче слева — хозяева, справа — гости. Ответные встречи проходят отдельным вторым кругом.</div>}
 
       {editable && tournament.sport === FOOTBALL_DOUBLES && onDistributeClubs && <>
-        <DoublesClubPicker clubs={clubPool} onChange={setClubPool} playerCount={tournament.players.length} allowNone />
+        <DoublesClubPicker clubs={clubPool} onChange={setClubPool} playerCount={tournament.players.length} rounds={rounds} allowNone />
         <button type="button" className="btn btn-secondary" disabled={!clubPool || clubPool.some(club => !club)} onClick={() => {
           setClubError(null);
           try { onDistributeClubs(clubPool); } catch (error) { setClubError(error.message); }
@@ -114,8 +115,8 @@ export default function AmericanoBoard({ tournament, editable, onConfirm = () =>
       </>}
 
       <div className={tournament.sport === FOOTBALL_DOUBLES ? 'doubles-rounds-grid' : undefined}>
-      {(tournament.rounds || []).map((round, rIdx) => (
-        <div className="group-block" key={rIdx}>
+      {rounds.map((round, rIdx) => (
+        <div className="group-block" key={tournament.rounds.indexOf(round)}>
           <div className="group-name">
             {isLeague
               ? `Круг ${rIdx < roundsPerLeg ? 1 : 2} · Тур ${rIdx % roundsPerLeg + 1}${rIdx >= roundsPerLeg ? ' · Ответные встречи' : ''}`
@@ -128,8 +129,8 @@ export default function AmericanoBoard({ tournament, editable, onConfirm = () =>
                 match={match}
                 editable={editable}
                 hasDraws={cfg.hasDraws}
-                onConfirm={(s1, s2) => onConfirm(rIdx, mIdx, s1, s2)}
-                onEdit={() => onEdit(rIdx, mIdx)}
+                onConfirm={(s1, s2) => onConfirm(tournament.rounds.indexOf(round), mIdx, s1, s2)}
+                onEdit={() => onEdit(tournament.rounds.indexOf(round), mIdx)}
               />
             ))}
           </div>

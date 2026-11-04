@@ -1,9 +1,12 @@
-import { buildRounds, nextPow2, propagateWinners } from './bracket.js';
+import { buildRounds, nextPow2, propagateWinners, shuffle } from './bracket.js';
 import { hasBracketStarted } from './manualRearrange.js';
 import { FOOTBALL, getSportConfig } from './sportConfig.js';
+import { distributeDoublesClubs } from './doublesClubs.js';
+import { interleaveAmericanoRounds, orderedAmericanoRounds } from './americano.js';
 
 export function getParticipantAdditionError(tournament) {
   if (tournament.status !== 'active') return 'Сначала верните турнир в работу.';
+  if (getSportConfig(tournament.sport).engine === 'americano') return null;
   if ((tournament.sport || FOOTBALL) !== FOOTBALL) return 'Добавление с выбором клуба доступно в футболе.';
   if (tournament.format === 'group+playoff' && tournament.rounds?.length) {
     return 'После выхода из групп в плей-офф добавлять участников нельзя.';
@@ -14,7 +17,7 @@ export function getParticipantAdditionError(tournament) {
   return null;
 }
 
-export function addParticipant(draft, { name, club = null, groupIndex = 0 }) {
+export function addParticipant(draft, { name, club = null, groupIndex = 0 }, seed = 0) {
   const unavailable = getParticipantAdditionError(draft);
   if (unavailable) throw new Error(unavailable);
 
@@ -25,7 +28,47 @@ export function addParticipant(draft, { name, club = null, groupIndex = 0 }) {
   }
   if (draft.players.includes(player)) throw new Error(`Участник «${player}» уже добавлен.`);
 
-  if (draft.format === 'playoff') {
+  const cfg = getSportConfig(draft.sport);
+  if (cfg.engine === 'americano') {
+    // A mutation is replayed against the latest saved version: use the same
+    // seed so optimistic and persisted schedules have identical match indices.
+    let state = seed >>> 0;
+    const random = () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+    const players = [...draft.players, player];
+    const extraRounds = shuffle(draft.players, random).map(partner => {
+      const opponents = shuffle(draft.players.filter(name => name !== partner), random).slice(0, 2);
+      const match = { pairA: [player, partner], pairB: opponents, score1: null, score2: null, played: false };
+      return { matches: [match], byes: players.filter(name => ![...match.pairA, ...match.pairB].includes(name)) };
+    });
+    const existing = orderedAmericanoRounds(draft).map(({ additionalLeg, ...round }) => ({
+      ...round, byes: [...(round.byes || []), player],
+    }));
+    let rounds = interleaveAmericanoRounds(existing, extraRounds);
+    if (draft.format === 'league' && cfg.doubleRoundRobinLeague) {
+      const returnRounds = extraRounds.map(round => ({
+        ...round,
+        byes: [...round.byes],
+        matches: round.matches.map(match => ({ ...match, pairA: [...match.pairB], pairB: [...match.pairA] })),
+      }));
+      const half = existing.length / 2;
+      rounds = [
+        ...interleaveAmericanoRounds(existing.slice(0, half), extraRounds),
+        ...interleaveAmericanoRounds(existing.slice(half), returnRounds),
+      ];
+    }
+    const updated = {
+      ...draft,
+      players,
+      rounds,
+    };
+    // Reassign unplayed clubs for their new neighbours; played fixtures and
+    // their club assignments stay untouched.
+    if (draft.clubPool) distributeDoublesClubs(updated, draft.clubPool, seed);
+    draft.rounds = updated.rounds;
+  } else if (draft.format === 'playoff') {
     const seeded = draft.rounds[0].flatMap(match => [match.t1, match.t2]);
     const byeIndex = seeded.indexOf('BYE');
     if (byeIndex >= 0) seeded[byeIndex] = player;
@@ -54,7 +97,7 @@ export function addParticipant(draft, { name, club = null, groupIndex = 0 }) {
 
   draft.players.push(player);
   draft.participantMeta = { ...(draft.participantMeta || draft.playerMeta || {}) };
-  if (club) draft.participantMeta[player] = club;
+  if (club && cfg.hasClub) draft.participantMeta[player] = club;
   // A reopened tournament may still contain its previous final summary.
   delete draft.winner;
   delete draft.stats;

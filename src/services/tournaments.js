@@ -1,4 +1,5 @@
 import { fbGet, fbPut, fbDelete, fbGetWithEtag, fbPutIfMatch } from '../firebase.js';
+import { synchronizeDoublesReturnClubs } from '../utils/doublesClubs.js';
 
 // Every tournament is its own document at /tournaments/{id} from the moment
 // it's created — there is no shared "active slot" that a second tournament
@@ -53,6 +54,7 @@ export function updateTournament(id, mutator) {
       }
       if (!snap.data) throw new Error('Турнир удалён.');
       const draft = structuredClone(snap.data);
+      synchronizeDoublesReturnClubs(draft);
       mutator(draft);
       draft.updatedAt = Date.now();
       const res = await fbPutIfMatch(`/tournaments/${id}`, draft, snap.etag);
@@ -77,7 +79,10 @@ export function reopenFinishedTournament(tournament) {
 export async function getTournament(id) {
   const snap = await fbGetWithEtag(`/tournaments/${id}`);
   snapshots.set(id, snap);
-  return snap.data;
+  if (!snap.data) return snap.data;
+  const tournament = structuredClone(snap.data);
+  synchronizeDoublesReturnClubs(tournament);
+  return tournament;
 }
 
 async function listAll() {

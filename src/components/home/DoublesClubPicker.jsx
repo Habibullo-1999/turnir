@@ -5,8 +5,8 @@ import { minimumDoublesClubs } from '../../utils/doublesClubs.js';
 
 const ALL_CLUBS = CLUBS.map(club => ({ club: club.n, league: club.l, flag: club.f, icon: club.i || '' }));
 
-export default function DoublesClubPicker({ clubs, onChange, playerCount, allowNone = false }) {
-  const minimum = minimumDoublesClubs(playerCount);
+export default function DoublesClubPicker({ clubs, onChange, playerCount, rounds, allowNone = false }) {
+  const minimum = minimumDoublesClubs(playerCount, rounds);
   const allSelected = clubs?.length === ALL_CLUBS.length && clubs.every((club, index) => club?.club === ALL_CLUBS[index].club);
   const mode = !clubs ? 'none' : allSelected ? 'all' : 'custom';
   return (
@@ -31,7 +31,7 @@ export default function DoublesClubPicker({ clubs, onChange, playerCount, allowN
         </div>
         <button type="button" className="btn btn-secondary" onClick={() => onChange([...clubs, null])}>+ Добавить клуб</button>
       </>}
-      <div className="field-hint">Клуб назначается паре на матч. При смене партнёров у каждого игрока меняется клуб. В одном раунде клубы не повторяются. Для своего набора нужно минимум {minimum} разных клубов.</div>
+      <div className="field-hint">В первом круге при смене партнёров меняются клубы. В ответной встрече пара сохраняет клуб первого матча. В одном раунде клубы не повторяются. Для своего набора нужно минимум {minimum} разных клубов.</div>
     </div>
   );
 }
