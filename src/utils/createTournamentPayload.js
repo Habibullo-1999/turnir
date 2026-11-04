@@ -3,11 +3,11 @@ import { buildGroups, buildLeague } from './groups.js';
 import { buildAmericanoRounds } from './americano.js';
 import { getSportConfig, FOOTBALL, FOOTBALL_DOUBLES, TURNIK } from './sportConfig.js';
 import { completeFootballDoublesLeague } from './footballDoublesSchedule.js';
-import { MIN_TEAM_LOG_PLAYERS, buildTeams } from './teamMatchLog.js';
+import { MIN_TEAM_LOG_PLAYERS, buildTeams, getTeams } from './teamMatchLog.js';
 import { distributeDoublesClubs } from './doublesClubs.js';
 
 // participants: [{ name: string, club: {club,league,flag,icon} | null }]
-export function buildTournamentPayload({ name, participants, format, sport = FOOTBALL, clubPool }) {
+export function buildTournamentPayload({ name, participants, format, sport = FOOTBALL, clubPool, previousMatch }) {
   const cfg = getSportConfig(sport);
 
   if (cfg.engine === 'turnik-ladder') {
@@ -45,7 +45,8 @@ export function buildTournamentPayload({ name, participants, format, sport = FOO
       players: names,
       playedAt: Date.now(),
       scores: [0, 0],
-      teams: buildTeams(names),
+      teams: buildTeams(names, previousMatch ? getTeams(previousMatch) : []),
+      ...(previousMatch ? { previousMatchId: previousMatch.id, previousTeams: getTeams(previousMatch).map(({ name, players }) => ({ name, players })) } : {}),
     };
   }
 

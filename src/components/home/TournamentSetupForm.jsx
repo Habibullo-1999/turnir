@@ -9,7 +9,7 @@ import { useTournament } from '../../context/TournamentContext.jsx';
 import { listAll } from '../../services/tournaments.js';
 import { FOOTBALL, FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
 import { assignRandomClubs, getLastClubsByPlayer } from '../../utils/randomClubAssignment.js';
-import { MIN_TEAM_LOG_PLAYERS } from '../../utils/teamMatchLog.js';
+import { MIN_TEAM_LOG_PLAYERS, getPreviousRealMatch } from '../../utils/teamMatchLog.js';
 
 let rowIdCounter = 0;
 const DOUBLES_FORMATS = [
@@ -104,11 +104,15 @@ export default function TournamentSetupForm({ sport, onCreated }) {
     setError(null);
     setCreating(true);
     try {
+      const previousMatch = cfg.engine === 'team-match-log'
+        ? getPreviousRealMatch(await listAll())
+        : null;
       const payload = buildTournamentPayload({
         name,
         participants: rows.map(r => ({ name: r.name, club: r.club })),
         format,
         sport,
+        previousMatch,
         ...(sport === FOOTBALL_DOUBLES ? { clubPool } : {}),
       });
       await startTournament(payload);
@@ -182,7 +186,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
           {cfg.engine === 'turnik-ladder' && `Минимум 2 ${cfg.unitNoun}.`}
           {cfg.engine === 'americano' && `Минимум ${cfg.minParticipants || 3} участника. Пары формируются случайно и меняются каждый раунд.${cfg.allowUnevenTeams === false ? ' Лишние игроки отдыхают: каждый матч строго 2×2.' : ''}`}
           {supportsDoublesLeague && format === 'league' && ' Во втором круге те же пары играют ответные матчи, поменявшись дома и в гостях. Зачёт парный: победа — 3 очка, ничья — 1.'}
-          {cfg.engine === 'team-match-log' && `Минимум ${MIN_TEAM_LOG_PLAYERS} игроков. Те, кто пришёл, сразу разделятся на две команды поровну — при нечётном числе лишний идёт в усиление случайной. Составы потом можно поправить.`}
+          {cfg.engine === 'team-match-log' && `Минимум ${MIN_TEAM_LOG_PLAYERS} игроков. Состав каждой команды меняется минимум на двух игроков относительно последнего матча, включая активный. При нечётном числе игроков в одной команде будет на одного больше. Составы потом можно поправить.`}
         </div>
       </div>
 

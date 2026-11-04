@@ -149,7 +149,9 @@ export function movePlayer(draft, player, toSide) {
 // сыгран (или переигрывается), и переписывать нечего — голы, пасы и автоголы
 // обнуляются вместе с составами.
 export function reshuffleTeams(draft) {
-  writeTeams(draft, buildTeams(draft.players, getTeams(draft)));
+  const teams = getTeams(draft);
+  const generated = buildTeams(draft.players, draft.previousTeams || []);
+  writeTeams(draft, generated.map((team, side) => ({ ...team, name: teams[side].name })));
   writeScores(draft, [0, 0]);
 }
 

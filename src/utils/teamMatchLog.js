@@ -1,4 +1,5 @@
 import { shuffle } from './bracket.js';
+import { FOOTBALL_REAL } from './sportConfig.js';
 
 // «Реальный футбол» — одна запись = один матч. Не турнир, не сетка и не набор
 // игр: у матча своё название, своя дата, две команды с составами и авторами
@@ -95,16 +96,52 @@ export function totalGoals(match) {
 
 // Делит пришедших на две команды. Нечётный лишний не садится на лавку, а идёт
 // в усиление случайной команде: 5 человек → 3×2 или 2×3, играют все.
-export function splitTeams(players) {
+export function getPreviousRealMatch(tournaments) {
+  const time = match => Number(match.playedAt || match.finishedAt || match.createdAt) || parseInt(match.id, 10) || 0;
+  return tournaments.filter(match => match.sport === FOOTBALL_REAL && hasTeams(match))
+    .reduce((latest, match) => !latest || time(match) > time(latest) ? match : latest, null);
+}
+
+export function splitTeams(players, previousTeams = []) {
   const pool = shuffle(toList(players));
-  const half = Math.ceil(pool.length / 2);
-  const first = pool.slice(0, half);
-  const second = pool.slice(half);
-  return Math.random() < 0.5 ? [first, second] : [second, first];
+  const previous = getTeams({ teams: previousTeams }).map(team => new Set(team.players));
+  const hasPrevious = previous.some(team => team.size > 0);
+  const groups = [[], [], []];
+  pool.forEach(player => groups[previous[0].has(player) ? 0 : previous[1].has(player) ? 1 : 2].push(player));
+  const [a, b, newcomers] = groups.map(group => group.length);
+  const pairs = count => count * (count - 1) / 2;
+  let best = Infinity;
+  let choices = [];
+  // Count repeated teammate pairs, regardless of team name or side. Only
+  // three groups matter: previous side A, previous side B, and newcomers.
+  for (const size of new Set([Math.ceil(pool.length / 2), Math.floor(pool.length / 2)])) {
+    for (let leftA = 0; leftA <= a; leftA++) {
+      for (let leftB = 0; leftB <= b; leftB++) {
+        const leftNew = size - leftA - leftB;
+        if (leftNew < 0 || leftNew > newcomers) continue;
+        if (hasPrevious) {
+          if (leftB + leftNew < 2 || a - leftA + newcomers - leftNew < 2) continue;
+          // Moving both complete rosters to the other side is not a new draw.
+          if (leftA === 0 && leftB === b && leftNew === 0 && newcomers === 0) continue;
+        }
+        const cost = pairs(leftA) + pairs(a - leftA) + pairs(leftB) + pairs(b - leftB);
+        if (cost < best) { best = cost; choices = []; }
+        if (cost === best) choices.push([leftA, leftB, leftNew]);
+      }
+    }
+  }
+  if (!choices.length) {
+    throw new Error('Не удаётся сменить минимум двух игроков в каждой команде без простой перестановки команд. Измените состав участников.');
+  }
+  const counts = choices[Math.floor(Math.random() * choices.length)];
+  return [
+    groups.flatMap((group, i) => group.slice(0, counts[i])),
+    groups.flatMap((group, i) => group.slice(counts[i])),
+  ];
 }
 
 export function buildTeams(players, previousTeams = []) {
-  return splitTeams(players).map((roster, side) => ({
+  return splitTeams(players, previousTeams).map((roster, side) => ({
     name: previousTeams[side]?.name || DEFAULT_TEAM_NAMES[side],
     players: roster,
     goals: {},
