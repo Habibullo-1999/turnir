@@ -184,7 +184,7 @@ export default function HistoryList() {
   const [sportFilter, setSportFilter] = useState(FOOTBALL);
   const [period, setPeriod] = useState('all');
   const [playerCount, setPlayerCount] = useState('all');
-  const [teamStatsView, setTeamStatsView] = useState('team');
+  const [teamStatsView, setTeamStatsView] = useState('personal');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -350,7 +350,7 @@ export default function HistoryList() {
           {isTeamMatchLog && sortedStats.length > 0 && (
             <>
             <div role="group" aria-label="Зачёт реального футбола" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              {[['team', 'Командная игра'], ['personal', 'Личные результаты']].map(([value, label]) => (
+              {[['personal', 'Личные результаты'], ['team', 'Командная игра']].map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
