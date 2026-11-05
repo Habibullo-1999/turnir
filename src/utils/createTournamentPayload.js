@@ -2,7 +2,7 @@ import { nextPow2, shuffle, buildRounds, propagateWinners } from './bracket.js';
 import { buildGroups, buildLeague } from './groups.js';
 import { buildAmericanoRounds } from './americano.js';
 import { getSportConfig, FOOTBALL, FOOTBALL_DOUBLES, TURNIK } from './sportConfig.js';
-import { completeFootballDoublesLeague } from './footballDoublesSchedule.js';
+import { completeFootballDoublesSchedule } from './footballDoublesSchedule.js';
 import { MIN_TEAM_LOG_PLAYERS, buildTeams, getTeams } from './teamMatchLog.js';
 import { distributeDoublesClubs } from './doublesClubs.js';
 
@@ -65,7 +65,7 @@ export function buildTournamentPayload({ name, participants, format, sport = FOO
       ...(isLeague ? { format: 'league' } : {}),
       rounds: buildAmericanoRounds(names, { allowUnevenTeams: cfg.allowUnevenTeams, double: Boolean(isLeague) }),
     };
-    if (sport === FOOTBALL_DOUBLES && isLeague) completeFootballDoublesLeague(payload);
+    if (sport === FOOTBALL_DOUBLES) completeFootballDoublesSchedule(payload);
     if (clubPool) distributeDoublesClubs(payload, clubPool, Math.floor(Math.random() * 2 ** 32));
     return payload;
   }

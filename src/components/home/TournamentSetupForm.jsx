@@ -50,7 +50,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
     setRows(Array.from({ length: initialRows }, () => newRow()));
     setSelectedClubs([]);
     setClubPool(null);
-    setFormat(supportsDoublesLeague ? 'league' : 'playoff');
+    setFormat(supportsDoublesLeague ? 'americano' : 'playoff');
   }, [sport]);
 
   const history = useMemo(() => tournaments

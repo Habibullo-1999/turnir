@@ -1,6 +1,6 @@
 import { FOOTBALL_DOUBLES } from './sportConfig.js';
 import { americanoReturnPairs, orderedAmericanoRounds, isAmericanoComplete, computeAmericanoResult } from './americano.js';
-import { completeFootballDoublesLeague } from './footballDoublesSchedule.js';
+import { completeFootballDoublesSchedule } from './footballDoublesSchedule.js';
 import { distributeDoublesClubs } from './doublesClubs.js';
 
 export function changeDoublesFormat(draft, format, seed = 0) {
@@ -33,7 +33,7 @@ export function changeDoublesFormat(draft, format, seed = 0) {
       })),
     }))];
     updated.format = 'league';
-    completeFootballDoublesLeague(updated);
+    completeFootballDoublesSchedule(updated);
   }
   if (updated.clubPool) distributeDoublesClubs(updated, updated.clubPool, seed);
   draft.rounds = updated.rounds;

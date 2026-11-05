@@ -100,8 +100,12 @@ test('adding to doubles interleaves new-player matches and preserves every exist
       }
       assert.deepEqual(scheduled.sort(), [...draft.players].sort());
     }
-    const partners = draft.rounds.filter(hasNewPlayer).map(round => round.matches[0].pairA[1]);
-    assert.deepEqual(partners.sort(), [...before.players].sort());
+    const partners = draft.rounds.filter(hasNewPlayer).flatMap(round => round.matches.flatMap(match =>
+      [match.pairA, match.pairB].filter(pair => pair.includes('Новый')).flatMap(pair => pair.filter(player => player !== 'Новый')),
+    ));
+    assert.deepEqual([...new Set(partners)].sort(), [...before.players].sort());
+    const n = draft.players.length;
+    assert.equal(draft.rounds.flatMap(round => round.matches).length, n * (n - 1) * (n - 2) * (n - 3) / 8);
     for (const key of ['winner', 'stats', 'finishedAt', 'date']) assert.equal(Object.hasOwn(draft, key), false);
   }
 });

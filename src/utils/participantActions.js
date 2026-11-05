@@ -1,7 +1,7 @@
 import { buildRounds, nextPow2, propagateWinners, shuffle } from './bracket.js';
 import { hasBracketStarted } from './manualRearrange.js';
 import { FOOTBALL, FOOTBALL_DOUBLES, getSportConfig } from './sportConfig.js';
-import { completeFootballDoublesLeague } from './footballDoublesSchedule.js';
+import { completeFootballDoublesSchedule } from './footballDoublesSchedule.js';
 import { distributeDoublesClubs } from './doublesClubs.js';
 import { interleaveAmericanoRounds, orderedAmericanoRounds } from './americano.js';
 
@@ -65,8 +65,8 @@ export function addParticipant(draft, { name, club = null, groupIndex = 0 }, see
       players,
       rounds,
     };
-    if (draft.sport === FOOTBALL_DOUBLES && draft.format === 'league') {
-      completeFootballDoublesLeague(updated);
+    if (draft.sport === FOOTBALL_DOUBLES) {
+      completeFootballDoublesSchedule(updated);
     }
     // Reassign unplayed clubs for their new neighbours; played fixtures and
     // their club assignments stay untouched.

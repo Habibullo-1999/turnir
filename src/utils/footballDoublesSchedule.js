@@ -6,11 +6,12 @@ const emptyMatch = (pairA, pairB) => ({ pairA, pairB, score1: null, score2: null
 
 // Each four-player selection has three possible disjoint pair-versus-pair
 // fixtures. Partner rotation alone covers only a fraction of these fixtures.
-export function completeFootballDoublesLeague(tournament) {
+export function completeFootballDoublesSchedule(tournament) {
   const players = tournament.players;
   const existing = orderedAmericanoRounds(tournament);
-  if (existing.length % 2) throw new Error('В расписании отсутствуют ответные встречи.');
-  const half = existing.length / 2;
+  const isLeague = tournament.format === 'league';
+  if (isLeague && existing.length % 2) throw new Error('В расписании отсутствуют ответные встречи.');
+  const half = isLeague ? existing.length / 2 : existing.length;
   const first = existing.slice(0, half);
   const second = existing.slice(half);
   const known = new Set(first.flatMap(round => round.matches).map(fixtureKey));
@@ -53,7 +54,7 @@ export function completeFootballDoublesLeague(tournament) {
   }));
   tournament.rounds = [
     ...interleaveAmericanoRounds(first, added),
-    ...interleaveAmericanoRounds(second, returns),
+    ...(isLeague ? interleaveAmericanoRounds(second, returns) : []),
   ];
   return true;
 }
