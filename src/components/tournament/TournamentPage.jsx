@@ -25,8 +25,11 @@ import { confirmAmericanoScore, clearAmericanoScore } from '../../utils/american
 import { getTournamentWinner } from '../../utils/tournamentWinner.js';
 import {
   renameTeam, setScore, setPlayedAt, bumpGoal, bumpAssist, bumpOwnGoal, movePlayer, addPlayer,
-  reshuffleTeams, finishMatch, reopenMatch,
+  reshuffleTeams, applyTeams, finishMatch, reopenMatch,
 } from '../../utils/teamMatchActions.js';
+import { balanceTeams, computePlayerRatings, findPreviousTeams, ratingMatches } from '../../utils/teamBalance.js';
+import { listAll } from '../../services/tournaments.js';
+import { getPlayerProfiles, staminaMap } from '../../services/playerProfiles.js';
 import { FOOTBALL, FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
 import { addParticipant } from '../../utils/participantActions.js';
 import { removeParticipant } from '../../utils/removeParticipant.js';
@@ -60,6 +63,8 @@ export default function TournamentPage({ onHome }) {
   const [penaltyCtx, setPenaltyCtx] = useState(null);
   const [editCtx, setEditCtx] = useState(null);
   const [advanceError, setAdvanceError] = useState(null);
+  const [balancing, setBalancing] = useState(false);
+  const [balanceInfo, setBalanceInfo] = useState(null);
   const prevStatus = useRef(tournament?.status);
   const [justFinished, setJustFinished] = useState(false);
 
@@ -148,6 +153,28 @@ export default function TournamentPage({ onHome }) {
       mutate(action);
     } catch (err) {
       setAdvanceError(err.message);
+    }
+  }
+  // Сила игроков считается по всем реальным матчам (включая открытые), поэтому
+  // перед делением подтягиваем свежий список с сервера.
+  async function handleBalance() {
+    setAdvanceError(null);
+    setBalanceInfo(null);
+    setBalancing(true);
+    try {
+      const [all, profiles] = await Promise.all([listAll(), getPlayerProfiles()]);
+      const stamina = staminaMap(profiles);
+      const matches = ratingMatches(all, tournament.id);
+      const ratings = computePlayerRatings(matches);
+      const players = (Array.isArray(tournament.players) ? tournament.players : Object.values(tournament.players || {})).filter(Boolean);
+      const result = balanceTeams(players, ratings, findPreviousTeams(all, tournament), tournament.teams, { stamina });
+      applyTeams(structuredClone(tournament), result.teams);
+      mutate(draft => applyTeams(draft, result.teams));
+      setBalanceInfo({ ...result, matches: matches.length, newcomers: players.filter(p => !ratings[p]).length });
+    } catch (err) {
+      setAdvanceError(err.message);
+    } finally {
+      setBalancing(false);
     }
   }
   function handleAddPlayer(name, side) {
@@ -258,7 +285,10 @@ export default function TournamentPage({ onHome }) {
           onBumpOwnGoal={(side, player, delta) => runTeamMatchAction(draft => bumpOwnGoal(draft, side, player, delta))}
           onMovePlayer={(player, toSide) => runTeamMatchAction(draft => movePlayer(draft, player, toSide))}
           onAddPlayer={handleAddPlayer}
-          onReshuffle={() => runTeamMatchAction(draft => reshuffleTeams(draft))}
+          onReshuffle={() => { setBalanceInfo(null); runTeamMatchAction(draft => reshuffleTeams(draft)); }}
+          onBalance={handleBalance}
+          balancing={balancing}
+          balanceInfo={balanceInfo}
           onFinish={() => runTeamMatchAction(draft => finishMatch(draft))}
         />
       )}

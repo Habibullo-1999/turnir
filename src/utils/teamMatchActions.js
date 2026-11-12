@@ -155,6 +155,23 @@ export function reshuffleTeams(draft) {
   writeScores(draft, [0, 0]);
 }
 
+// Ставит заранее посчитанные составы (см. balanceTeams). Расчёт делается
+// снаружи: мутатор может переприменяться к серверной версии, и случайный
+// выбор внутри него дал бы другие команды, чем увидел пользователь.
+export function applyTeams(draft, rosters) {
+  if (draft.status !== 'active') throw new Error('Сначала верните матч в работу.');
+  const teams = getTeams(draft);
+  const players = new Set((Array.isArray(draft.players) ? draft.players : Object.values(draft.players || {})).filter(Boolean));
+  const assigned = rosters.flat();
+  if (assigned.length !== players.size || assigned.some(player => !players.has(player))) {
+    throw new Error('Состав участников изменился — попробуйте ещё раз.');
+  }
+  writeTeams(draft, rosters.map((roster, side) => ({
+    name: teams[side].name, players: roster, goals: {}, assists: {}, ownGoals: {},
+  })));
+  writeScores(draft, [0, 0]);
+}
+
 export function finishMatch(draft) {
   const invalid = validateMatch(draft);
   if (invalid) throw new Error(invalid);

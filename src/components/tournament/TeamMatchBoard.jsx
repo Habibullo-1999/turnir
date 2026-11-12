@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   attributedAssists, computeMatchStats, creditedGoals, dateInputValue, formatMatchDate,
-  getScores, getTeams, hasTeams, ownGoalsTotal, pluralGoals, pluralPlayers, timestampFromDateInput,
+  getScores, getTeams, hasTeams, ownGoalsTotal, pluralGoals, pluralMatches, pluralPlayers, timestampFromDateInput,
 } from '../../utils/teamMatchLog.js';
 
 // Счётчик «− n +» у игрока: голы, пасы или автоголы.
@@ -32,7 +32,7 @@ function playerBadges(row) {
 export default function TeamMatchBoard({
   tournament, editable,
   onRenameTeam = () => {}, onSetScore = () => {}, onSetDate = () => {}, onBumpGoal = () => {},
-  onBumpAssist = () => {}, onBumpOwnGoal = () => {}, onMovePlayer = () => {}, onReshuffle = () => {}, onFinish = () => {}, onAddPlayer = () => {},
+  onBumpAssist = () => {}, onBumpOwnGoal = () => {}, onMovePlayer = () => {}, onReshuffle = () => {}, onBalance = null, balancing = false, balanceInfo = null, onFinish = () => {}, onAddPlayer = () => {},
 }) {
   const [playerName, setPlayerName] = useState('');
   const [teamSide, setTeamSide] = useState('');
@@ -82,6 +82,20 @@ export default function TeamMatchBoard({
     </form>
   );
 
+  const balanceButton = onBalance && (
+    <button className="btn btn-secondary" onClick={onBalance} disabled={balancing} title="Делит по силе игроков из прошлых матчей, меняя минимум двух игроков в каждой команде">
+      {balancing ? '⏳ Считаем…' : '⚖️ Равные команды'}
+    </button>
+  );
+  const balanceHint = balanceInfo && (
+    <div className="field-hint" style={{ marginTop: 8 }}>
+      ⚖️ Сила команд: {balanceInfo.strength[0].toFixed(1)} — {balanceInfo.strength[1].toFixed(1)}
+      {balanceInfo.matches > 0 ? ` · по ${pluralMatches(balanceInfo.matches)}` : ' · истории ещё нет — деление случайное'}
+      {balanceInfo.newcomers > 0 && ` · без истории: ${balanceInfo.newcomers} (взят средний уровень)`}
+      {Number.isFinite(balanceInfo.changed) && balanceInfo.changed < 2 && ' · игроков слишком мало, чтобы сменить двоих в каждой команде'}
+    </div>
+  );
+
   if (!split) {
     return (
       <div className="card">
@@ -90,6 +104,7 @@ export default function TeamMatchBoard({
         {canEdit && (
           <div className="btn-row">
             <button className="btn btn-primary" onClick={onReshuffle}>🎲 Разделить {pluralPlayers((tournament.players || []).length)} на две команды</button>
+            {balanceButton}
           </div>
         )}
       </div>
@@ -234,8 +249,10 @@ export default function TeamMatchBoard({
         <div className="btn-row">
           <button className="btn btn-primary" onClick={onFinish}>🏁 Завершить матч</button>
           <button className="btn btn-secondary" onClick={onReshuffle}>🎲 Разделить заново</button>
+          {balanceButton}
         </div>
       )}
+      {canEdit && balanceHint}
     </div>
   );
 }
