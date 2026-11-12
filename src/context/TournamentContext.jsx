@@ -95,20 +95,23 @@ export function TournamentProvider({ children }) {
   // the same mutation on top of the latest server version if someone else
   // changed the tournament meanwhile. A mutator that throws does so
   // synchronously here, before anything is shown or saved.
-  const mutate = useCallback((mutator) => {
+  // A confirmation flow can wait for the saved state before updating the UI.
+  const mutate = useCallback((mutator, { optimistic = true } = {}) => {
     const current = currentRef.current;
     if (!current) return;
     const draft = structuredClone(current);
     mutator(draft);
-    currentRef.current = draft;
-    setTournament(draft);
+    if (optimistic) {
+      currentRef.current = draft;
+      setTournament(draft);
+    }
 
     const session = sessionRef.current;
     pendingRef.current += 1;
     setSaveStatus('saving');
-    updateTournament(current.id, mutator)
+    return updateTournament(current.id, mutator)
       .then(saved => {
-        if (sessionRef.current !== session) return;
+        if (sessionRef.current !== session) return false;
         pendingRef.current -= 1;
         setSaveError(null);
         if (pendingRef.current === 0) {
@@ -116,12 +119,14 @@ export function TournamentProvider({ children }) {
           setTournament(saved);
           setSaveStatus('saved');
         }
+        return true;
       })
       .catch(err => {
-        if (sessionRef.current !== session) return;
+        if (sessionRef.current !== session) return false;
         pendingRef.current -= 1;
         setSaveStatus('error');
         setSaveError(err.message);
+        return false;
       });
   }, []);
 

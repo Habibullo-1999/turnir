@@ -212,12 +212,16 @@ export function matchResult(match) {
   const [s1, s2] = getScores(match);
   const draw = s1 === s2;
   const rows = computeMatchStats(match);
-  const top = rows[0];
+  const leadingGoals = rows[0]?.goals || 0;
+  const leaders = rows.filter(row => leadingGoals > 0 && row.goals === leadingGoals);
+  const winningLeaders = leaders.filter(row => row.result === 'win');
+  const topScorerCandidates = winningLeaders.length ? winningLeaders : leaders;
   const topAssist = [...rows].sort((a, b) => b.assists - a.assists || a.name.localeCompare(b.name, 'ru'))[0];
   return {
     winner: draw ? DRAW_LABEL : (s1 > s2 ? teams[0].name : teams[1].name),
     draw,
-    topScorer: top && top.goals > 0 ? top : null,
+    topScorerCandidates,
+    topScorer: topScorerCandidates.find(row => row.name === match.topScorerName) ?? topScorerCandidates[0] ?? null,
     topAssist: topAssist && topAssist.assists > 0 ? topAssist : null,
   };
 }

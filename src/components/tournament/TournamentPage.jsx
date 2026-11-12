@@ -8,6 +8,7 @@ import EditScoreConfirmModal from './EditScoreConfirmModal.jsx';
 import TurnikLadder from './TurnikLadder.jsx';
 import AmericanoBoard from './AmericanoBoard.jsx';
 import TeamMatchBoard from './TeamMatchBoard.jsx';
+import FinishTeamMatchModal from './FinishTeamMatchModal.jsx';
 import AddParticipantForm from './AddParticipantForm.jsx';
 import ChangeDoublesFormat from './ChangeDoublesFormat.jsx';
 import { changeDoublesFormat } from '../../utils/changeDoublesFormat.js';
@@ -33,7 +34,7 @@ import { getPlayerProfiles, staminaMap } from '../../services/playerProfiles.js'
 import { FOOTBALL, FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
 import { addParticipant } from '../../utils/participantActions.js';
 import { removeParticipant } from '../../utils/removeParticipant.js';
-import { DRAW_LABEL, getScores, matchResult, pluralGoals } from '../../utils/teamMatchLog.js';
+import { DRAW_LABEL, getScores, matchResult, pluralGoals, validateMatch } from '../../utils/teamMatchLog.js';
 
 // В «реальном футболе» нет чемпиона турнира — есть победитель одного матча
 // (или ничья), а лучший бомбардир идёт отдельной строкой.
@@ -63,6 +64,7 @@ export default function TournamentPage({ onHome }) {
   const [penaltyCtx, setPenaltyCtx] = useState(null);
   const [editCtx, setEditCtx] = useState(null);
   const [advanceError, setAdvanceError] = useState(null);
+  const [finishingMatch, setFinishingMatch] = useState(false);
   const [balancing, setBalancing] = useState(false);
   const [balanceInfo, setBalanceInfo] = useState(null);
   const prevStatus = useRef(tournament?.status);
@@ -154,6 +156,16 @@ export default function TournamentPage({ onHome }) {
     } catch (err) {
       setAdvanceError(err.message);
     }
+  }
+  function requestTeamMatchFinish() {
+    const error = validateMatch(tournament);
+    setAdvanceError(error);
+    if (!error) setFinishingMatch(true);
+  }
+  async function confirmTeamMatchFinish(bestPlayer, topScorerName) {
+    const saved = await mutate(draft => finishMatch(draft, bestPlayer, topScorerName), { optimistic: false });
+    if (saved) setFinishingMatch(false);
+    return saved;
   }
   // Сила игроков считается по всем реальным матчам (включая открытые), поэтому
   // перед делением подтягиваем свежий список с сервера.
@@ -289,7 +301,7 @@ export default function TournamentPage({ onHome }) {
           onBalance={handleBalance}
           balancing={balancing}
           balanceInfo={balanceInfo}
-          onFinish={() => runTeamMatchAction(draft => finishMatch(draft))}
+          onFinish={requestTeamMatchFinish}
         />
       )}
 
@@ -345,6 +357,15 @@ export default function TournamentPage({ onHome }) {
 
       {isBracketGroup && <PenaltyModal ctx={penaltyCtx} onConfirm={handleConfirmPenalty} onClose={() => setPenaltyCtx(null)} />}
       <EditScoreConfirmModal ctx={editCtx} onConfirm={confirmEdit} onClose={() => setEditCtx(null)} />
+      {isTeamMatchLog && editable && finishingMatch && (
+        <FinishTeamMatchModal
+          key={tournament.id}
+          match={tournament}
+          saveError={saveError}
+          onConfirm={confirmTeamMatchFinish}
+          onClose={() => setFinishingMatch(false)}
+        />
+      )}
     </div>
   );
 }

@@ -172,13 +172,27 @@ export function applyTeams(draft, rosters) {
   writeScores(draft, [0, 0]);
 }
 
-export function finishMatch(draft) {
+export function finishMatch(draft, bestPlayer, topScorerName) {
+  if (draft.status !== 'active') throw new Error('Матч уже завершён.');
   const invalid = validateMatch(draft);
   if (invalid) throw new Error(invalid);
+  if (!getTeams(draft).some(team => team.players.includes(bestPlayer))) {
+    throw new Error('Выберите лучшего игрока из состава матча.');
+  }
+  const { winner, topScorerCandidates } = matchResult(draft);
+  if ((topScorerName || topScorerCandidates.length > 1) && !topScorerCandidates.some(row => row.name === topScorerName)) {
+    throw new Error('Выберите лучшего бомбардира из списка кандидатов.');
+  }
+  if (topScorerCandidates.length > 1) {
+    draft.topScorerName = topScorerName;
+  } else {
+    delete draft.topScorerName;
+  }
+  draft.bestPlayer = bestPlayer;
   draft.status = 'finished';
   draft.finishedAt = Date.now();
   draft.date = new Date().toLocaleDateString('ru');
-  draft.winner = matchResult(draft).winner;
+  draft.winner = winner;
 }
 
 export function reopenMatch(draft) {

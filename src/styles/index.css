@@ -375,6 +375,9 @@ textarea { min-height: 140px; line-height: 1.7; }
 .penalty-modal-row { display: flex; align-items: center; gap: 10px; }
 .penalty-modal-name { flex: 1; font-size: 0.85rem; font-weight: 600; color: var(--text); }
 .penalty-modal-row input { width: 52px; text-align: center; font-size: 1rem; font-weight: 700; padding: 6px; }
+.tml-finish-dialog { margin: auto; width: calc(100% - 32px); color: var(--text); }
+.tml-finish-dialog::backdrop { background: rgba(10,14,10,0.92); }
+.tml-finish-dialog form { display: grid; gap: 12px; margin-top: 12px; }
 
 /* History modal */
 .history-modal-overlay { position: fixed; inset: 0; background: rgba(10,14,10,0.9); z-index: 8000; overflow-y: auto; padding: 20px; }

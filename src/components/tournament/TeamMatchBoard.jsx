@@ -133,6 +133,10 @@ export default function TeamMatchBoard({
 
       {addPlayerForm}
 
+      {isFinished && tournament.bestPlayer && (
+        <div className="tml-match-meta">⭐ Лучший игрок матча — {tournament.bestPlayer}</div>
+      )}
+
       <div className="tml-scoreboard">
         {[0, 1].map(side => {
           const team = teams[side];
@@ -247,7 +251,7 @@ export default function TeamMatchBoard({
 
       {canEdit && (
         <div className="btn-row">
-          <button className="btn btn-primary" onClick={onFinish}>🏁 Завершить матч</button>
+          <button className="btn btn-primary" onClick={onFinish} disabled={balancing}>🏁 Завершить матч</button>
           <button className="btn btn-secondary" onClick={onReshuffle}>🎲 Разделить заново</button>
           {balanceButton}
         </div>

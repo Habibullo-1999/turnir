@@ -3,7 +3,7 @@ import { listHistory, reopenFinishedTournament } from '../../services/tournament
 import { computeTournamentResult } from '../../utils/computeStats.js';
 import { buildLadderRanking } from '../../utils/ladder.js';
 import { aggregateAmericanoPairStats } from '../../utils/americano.js';
-import { DRAW_LABEL, computeMatchStats, getScores, matchResult, pluralPlayers } from '../../utils/teamMatchLog.js';
+import { DRAW_LABEL, computeMatchStats, getScores, pluralPlayers } from '../../utils/teamMatchLog.js';
 import { SPORT_CONFIG, getSportConfig, FOOTBALL } from '../../utils/sportConfig.js';
 import HistoryModal from './HistoryModal.jsx';
 import RecordsGrid from './RecordsGrid.jsx';
@@ -80,33 +80,28 @@ function aggregateLadderStats(history) {
 const matchPoints = s => s.wins * 3 + s.draws;
 const goalsPerMatch = s => s.played > 0 ? s.goals / s.played : 0;
 
-// Оба зачёта пересчитываются из сырых матчей; кеш `stats` не нужен.
-function aggregateTeamMatchStats(history, view) {
+// Зачёт пересчитывается из сырых матчей.
+function aggregateTeamMatchStats(history) {
   const allStats = {};
   history.forEach(entry => {
-    const { topScorer, topAssist } = matchResult(entry);
     computeMatchStats(entry).forEach(row => {
       if (!allStats[row.name]) {
         allStats[row.name] = {
-          played: 0, goals: 0, assists: 0, ownGoals: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, boots: 0, playmaker: 0,
+          played: 0, goals: 0, assists: 0, wins: 0, draws: 0, losses: 0, bestPlayerAwards: 0,
         };
       }
       const s = allStats[row.name];
       s.played++;
       s.goals += row.goals;
       s.assists += row.assists;
-      s.ownGoals += row.ownGoals;
-      s.gf += row.gf;
-      s.ga += row.ga;
       if (row.result === 'win') s.wins++;
       else if (row.result === 'loss') s.losses++;
       else s.draws++;
-      if (topScorer && topScorer.name === row.name) s.boots++;
-      if (topAssist && topAssist.name === row.name) s.playmaker++;
+      if (entry.bestPlayer === row.name) s.bestPlayerAwards++;
     });
   });
   return Object.entries(allStats).sort(([nameA, a], [nameB, b]) =>
-    (view === 'personal' ? goalsPerMatch(b) - goalsPerMatch(a) : matchPoints(b) - matchPoints(a))
+    matchPoints(b) - matchPoints(a)
     || b.goals - a.goals || b.assists - a.assists || a.played - b.played
     || nameA.localeCompare(nameB, 'ru'));
 }
@@ -184,7 +179,6 @@ export default function HistoryList() {
   const [sportFilter, setSportFilter] = useState(FOOTBALL);
   const [period, setPeriod] = useState('all');
   const [playerCount, setPlayerCount] = useState('all');
-  const [teamStatsView, setTeamStatsView] = useState('personal');
 
   const load = useCallback(() => {
     setLoading(true);
@@ -229,7 +223,7 @@ export default function HistoryList() {
     && (sportFilter !== FOOTBALL || playerCount === 'all' || playerCountFor(entry) === Number(playerCount)));
   const sortedStats = isTurnik ? aggregateLadderStats(periodHistory)
     : isAmericano ? aggregateAmericanoPairStats(periodHistory)
-    : isTeamMatchLog ? aggregateTeamMatchStats(periodHistory, teamStatsView)
+    : isTeamMatchLog ? aggregateTeamMatchStats(periodHistory)
     : aggregateStats(periodHistory);
   const records = computeRecords(periodHistory, cfg);
   const topGoals = isTeamMatchLog ? leaderValue(sortedStats, 'goals') : 0;
@@ -348,36 +342,17 @@ export default function HistoryList() {
           )}
 
           {isTeamMatchLog && sortedStats.length > 0 && (
-            <>
-            <div role="group" aria-label="Зачёт реального футбола" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              {[['personal', 'Личные результаты'], ['team', 'Командная игра']].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={'format-btn' + (teamStatsView === value ? ' active' : '')}
-                  aria-pressed={teamStatsView === value}
-                  onClick={() => setTeamStatsView(value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
             <div className="table-scroll">
-            <table className="stats-table">
+            <table className="stats-table" aria-label="Личные результаты">
               <thead>
                 <tr>
                   <th>Игрок</th>
-                  {teamStatsView === 'personal' ? <>
-                  <th title="Личные голы / все сыгранные матчи" aria-sort="descending">Голов за матч</th>
-                  <th title="Сколько раз был лучшим бомбардиром матча">👟</th>
-                  <th title="Сколько раз был лучшим ассистентом матча">🅰️</th>
-                  <th>Матчей</th><th title="Голы">⚽</th><th title="Голевые пасы">Пасы</th>
-                  <th title="Голы + пасы">Г+П</th><th title="Автоголы">АГ</th>
-                  </> : <>
-                  <th>Матчей</th><th title="Победы">✅</th><th title="Ничьи">🤝</th><th title="Поражения">❌</th>
-                  <th title="Голы команды">Забито</th><th title="Пропущенные командой голы">Пропущено</th>
                   <th title="Очки: победа 3, ничья 1" aria-sort="descending">Очки</th>
-                  </>}
+                  <th>Матчей</th><th title="Победы">✅</th><th title="Ничьи">🤝</th><th title="Поражения">❌</th>
+                  <th title="Личные голы / все сыгранные матчи">Голов за матч</th>
+                  <th title="Сколько раз выбран лучшим игроком матча">Лучший игрок</th>
+                  <th title="Голы">⚽</th><th title="Голевые пасы">Пасы</th>
+                  <th title="Голы + пасы">Г+П</th>
                 </tr>
               </thead>
               <tbody>
@@ -388,30 +363,21 @@ export default function HistoryList() {
                       {topAssists > 0 && s.assists === topAssists ? '🅰️ ' : ''}
                       {name}
                     </td>
-                    {teamStatsView === 'personal' ? <>
-                    <td className="td-gold"><b>{goalsPerMatch(s).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></td>
-                    <td className="td-gold">{s.boots}</td>
-                    <td className="td-gold">{s.playmaker}</td>
-                    <td>{s.played}</td>
-                    <td className="td-green">{s.goals}</td>
-                    <td>{s.assists}</td>
-                    <td className="td-green">{s.goals + s.assists}</td>
-                    <td className={s.ownGoals ? 'td-red' : ''}>{s.ownGoals}</td>
-                    </> : <>
+                    <td className="td-gold"><b>{matchPoints(s)}</b></td>
                     <td>{s.played}</td>
                     <td className="td-green">{s.wins}</td>
                     <td>{s.draws}</td>
                     <td className="td-red">{s.losses}</td>
-                    <td>{s.gf}</td>
-                    <td>{s.ga}</td>
-                    <td className="td-gold"><b>{matchPoints(s)}</b></td>
-                    </>}
+                    <td className="td-gold"><b>{goalsPerMatch(s).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></td>
+                    <td className="td-gold">{s.bestPlayerAwards}</td>
+                    <td className="td-green">{s.goals}</td>
+                    <td>{s.assists}</td>
+                    <td className="td-green">{s.goals + s.assists}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             </div>
-            </>
           )}
 
           {!isTurnik && !isAmericano && !isTeamMatchLog && sortedStats.length > 0 && (
