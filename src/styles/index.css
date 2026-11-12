@@ -308,6 +308,9 @@ textarea { min-height: 140px; line-height: 1.7; }
 .stats-table { width:100%; border-collapse:collapse; font-size:0.85rem; margin-bottom:16px; }
 .stats-table th { text-align:center; padding:8px 6px; font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); border-bottom:1px solid var(--border); font-weight:600; }
 .stats-table th:first-child { text-align:left; }
+.stats-table .th-sort { background:none; border:0; padding:0; font:inherit; color:inherit; text-transform:inherit; letter-spacing:inherit; cursor:pointer; white-space:nowrap; }
+.stats-table .th-sort:hover, .stats-table .th-sort.active { color:var(--text); }
+.stats-table .th-sort:focus-visible { outline:2px solid var(--green-dim); outline-offset:2px; border-radius:4px; }
 .stats-table td { text-align:center; padding:8px 6px; border-bottom:1px solid rgba(30,46,30,0.5); }
 .stats-table td:first-child { text-align:left; font-weight:600; }
 .stats-table tr:hover td { background:rgba(34,197,94,0.04); }

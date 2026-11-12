@@ -106,6 +106,32 @@ function aggregateTeamMatchStats(history) {
     || nameA.localeCompare(nameB, 'ru'));
 }
 
+// Столбцы таблицы реального футбола. Клик по заголовку сортирует по нему,
+// повторный клик меняет направление.
+const TEAM_STATS_COLUMNS = [
+  { key: 'name', label: 'Игрок' },
+  { key: 'points', label: 'Очки', title: 'Очки: победа 3, ничья 1', value: matchPoints },
+  { key: 'played', label: 'Матчей', value: s => s.played },
+  { key: 'wins', label: '✅', title: 'Победы', value: s => s.wins },
+  { key: 'draws', label: '🤝', title: 'Ничьи', value: s => s.draws },
+  { key: 'losses', label: '❌', title: 'Поражения', value: s => s.losses },
+  { key: 'gpm', label: 'Голов за матч', title: 'Личные голы / все сыгранные матчи', value: goalsPerMatch },
+  { key: 'best', label: 'Лучший игрок', title: 'Сколько раз выбран лучшим игроком матча', value: s => s.bestPlayerAwards },
+  { key: 'goals', label: '⚽', title: 'Голы', value: s => s.goals },
+  { key: 'assists', label: 'Пасы', title: 'Голевые пасы', value: s => s.assists },
+  { key: 'contrib', label: 'Г+П', title: 'Голы + пасы', value: s => s.goals + s.assists },
+];
+const DEFAULT_TEAM_SORT = { key: 'points', dir: 'desc' };
+
+// Ничьи остаются в обычном порядке зачёта: stats уже так отсортированы,
+// а Array.prototype.sort стабильный.
+function sortTeamStats(stats, sort) {
+  const sign = sort.dir === 'asc' ? 1 : -1;
+  if (sort.key === 'name') return [...stats].sort(([a], [b]) => sign * a.localeCompare(b, 'ru'));
+  const col = TEAM_STATS_COLUMNS.find(c => c.key === sort.key);
+  return col ? [...stats].sort(([, a], [, b]) => sign * (col.value(a) - col.value(b))) : stats;
+}
+
 // Лидер по показателю (голы/пасы) — для бейджей 👟 и 🅰️. Таблица отсортирована
 // по очкам, поэтому лидер не обязательно первая строка. При равенстве бейдж
 // получают все, у кого максимум.
@@ -179,6 +205,12 @@ export default function HistoryList() {
   const [sportFilter, setSportFilter] = useState(FOOTBALL);
   const [period, setPeriod] = useState('all');
   const [playerCount, setPlayerCount] = useState('all');
+  const [teamSort, setTeamSort] = useState(DEFAULT_TEAM_SORT);
+  function toggleTeamSort(key) {
+    setTeamSort(prev => prev.key === key
+      ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+      : { key, dir: key === 'name' ? 'asc' : 'desc' });
+  }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -346,17 +378,20 @@ export default function HistoryList() {
             <table className="stats-table" aria-label="Личные результаты">
               <thead>
                 <tr>
-                  <th>Игрок</th>
-                  <th title="Очки: победа 3, ничья 1" aria-sort="descending">Очки</th>
-                  <th>Матчей</th><th title="Победы">✅</th><th title="Ничьи">🤝</th><th title="Поражения">❌</th>
-                  <th title="Личные голы / все сыгранные матчи">Голов за матч</th>
-                  <th title="Сколько раз выбран лучшим игроком матча">Лучший игрок</th>
-                  <th title="Голы">⚽</th><th title="Голевые пасы">Пасы</th>
-                  <th title="Голы + пасы">Г+П</th>
+                  {TEAM_STATS_COLUMNS.map(col => {
+                    const active = teamSort.key === col.key;
+                    return (
+                      <th key={col.key} title={col.title} aria-sort={active ? (teamSort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                        <button type="button" className={'th-sort' + (active ? ' active' : '')} onClick={() => toggleTeamSort(col.key)}>
+                          {col.label}{active ? (teamSort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </button>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {sortedStats.map(([name, s]) => (
+                {sortTeamStats(sortedStats, teamSort).map(([name, s]) => (
                   <tr key={name}>
                     <td>
                       {topGoals > 0 && s.goals === topGoals ? '👟 ' : ''}
