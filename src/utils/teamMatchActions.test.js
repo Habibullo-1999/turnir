@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addPlayer, bumpAssist, bumpGoal, bumpOwnGoal, finishMatch, movePlayer, renameTeam, reopenMatch, reshuffleTeams } from './teamMatchActions.js';
-import { computeMatchStats, matchResult, validateMatch } from './teamMatchLog.js';
+import { computeMatchStats, getTopScorers, matchResult, validateMatch } from './teamMatchLog.js';
 import { removeParticipant } from './removeParticipant.js';
 
 function activeMatch() {
@@ -160,53 +160,52 @@ test('stats and top assist read Firebase-shaped data with missing fields', () =>
   assert.equal(matchResult({ ...activeMatch() }).topAssist, null);
 });
 
-test('finishing a match saves the MVP and breaks a scoring tie in favor of the winning team', () => {
+test('finishing a match saves the result without manual awards', () => {
   const match = activeMatch();
-  match.teams[0].goals = { Олег: 1 };
-
-  finishMatch(match, 'Иван');
+  finishMatch(match);
 
   assert.equal(match.status, 'finished');
-  assert.equal(match.bestPlayer, 'Иван');
-  assert.equal(matchResult(match).topScorer.name, 'Олег');
+  assert.equal(match.winner, 'Красные');
+  assert.equal(match.bestPlayer, undefined);
+  assert.equal(match.topScorerName, undefined);
 });
 
-test('finishing requires eligible awards and preserves the selected scorer until corrected', () => {
+test('invalid or already finished matches cannot be finished', () => {
   const match = activeMatch();
-  match.scores = [4, 2];
-  match.teams[0].goals = { Али: 2, Олег: 2 };
-  match.teams[1].goals = { Иван: 2 };
+  match.scores = [1, 1];
   const before = structuredClone(match);
-
-  assert.deepEqual(matchResult(match).topScorerCandidates.map(row => row.name), ['Али', 'Олег']);
-  assert.throws(() => finishMatch(match, 'Зритель', 'Олег'), /лучшего игрока/);
-  assert.throws(() => finishMatch(match, 'Антон'), /лучшего бомбардира/);
-  assert.throws(() => finishMatch(match, 'Антон', 'Иван'), /лучшего бомбардира/);
+  assert.throws(() => finishMatch(match), /расписано 2 гола/);
   assert.deepEqual(match, before);
 
-  finishMatch(match, 'Антон', 'Олег');
-  assert.equal(match.topScorerName, 'Олег');
-  assert.equal(matchResult(match).topScorer.name, 'Олег');
-
+  match.scores = [3, 1];
+  finishMatch(match);
+  assert.throws(() => finishMatch(match), /Матч уже завершён/);
   reopenMatch(match);
-  bumpGoal(match, 0, 'Али', 1);
-  finishMatch(match, 'Антон');
-  assert.equal(match.topScorerName, undefined);
-  assert.equal(matchResult(match).topScorer.name, 'Али');
+  match.scores = [2, 2];
+  finishMatch(match);
+  assert.equal(match.winner, 'Ничья');
 });
 
-test('scoring candidates include leaders from both teams on a draw and omit goalless players', () => {
+test('top scorers are ranked by goals and then by assists across both teams', () => {
   const match = activeMatch();
-  match.scores = [2, 2];
-  match.teams[1].goals = { Иван: 2 };
-  assert.deepEqual(matchResult(match).topScorerCandidates.map(row => row.name), ['Али', 'Иван']);
-
+  const scorerNames = () => getTopScorers(computeMatchStats(match)).map(row => row.name);
   match.scores = [3, 2];
-  match.teams[0].goals = { Али: 1 };
-  assert.equal(matchResult(match).topScorer.name, 'Иван');
+  match.teams[0].assists = { Олег: 2 };
+  match.teams[1].assists = { Иван: 1 };
+  assert.deepEqual(scorerNames(), ['Али']);
 
-  match.scores = [0, 0];
+  match.teams[1].goals = { Иван: 2 };
+  match.topScorerName = 'Али'; // Старый ручной выбор не влияет на результат.
+  assert.deepEqual(scorerNames(), ['Иван']);
+
+  match.teams[0].assists.Али = 1;
+  assert.deepEqual(scorerNames(), ['Али', 'Иван']);
+});
+
+test('own goals and unattributed goals do not produce a top scorer', () => {
+  const match = activeMatch();
   match.teams.forEach(team => { team.goals = {}; });
-  finishMatch(match, 'Али');
-  assert.equal(matchResult(match).topScorer, null);
+  match.teams[1].ownGoals = { Иван: 1 };
+  finishMatch(match);
+  assert.deepEqual(getTopScorers(computeMatchStats(match)), []);
 });

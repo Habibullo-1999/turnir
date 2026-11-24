@@ -21,6 +21,14 @@ function newRow(name = '', club = null) {
   return { id: rowIdCounter, name, club };
 }
 
+function appendClubSlots(slots, count) {
+  const lastId = slots.at(-1)?.id ?? 0;
+  return [...slots, ...Array.from({ length: count }, (_, index) => ({
+    id: lastId + index + 1,
+    club: null,
+  }))];
+}
+
 export default function TournamentSetupForm({ sport, onCreated }) {
   const cfg = getSportConfig(sport);
   const supportsDoublesLeague = cfg.engine === 'americano' && cfg.doubleRoundRobinLeague;
@@ -28,7 +36,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
   const [name, setName] = useState('');
   const [rows, setRows] = useState(() => [newRow(), newRow()]);
   const [format, setFormat] = useState('playoff');
-  const [selectedClubs, setSelectedClubs] = useState([]);
+  const [clubSlots, setClubSlots] = useState([]);
   const [clubPool, setClubPool] = useState(null);
   const [tournaments, setTournaments] = useState([]);
   const [error, setError] = useState(null);
@@ -48,7 +56,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
   useEffect(() => {
     const initialRows = cfg.minParticipants || (cfg.engine === 'team-match-log' ? MIN_TEAM_LOG_PLAYERS : 2);
     setRows(Array.from({ length: initialRows }, () => newRow()));
-    setSelectedClubs([]);
+    setClubSlots([]);
     setClubPool(null);
     setFormat(supportsDoublesLeague ? 'americano' : 'playoff');
   }, [sport]);
@@ -56,11 +64,15 @@ export default function TournamentSetupForm({ sport, onCreated }) {
   const history = useMemo(() => tournaments
     .filter(tournament => tournament.status === 'finished'), [tournaments]);
   const knownPlayers = useKnownPlayers(cfg.engine === 'americano' ? tournaments : history, sport);
-  const existingNames = rows.map(r => r.name.trim()).filter(Boolean);
+  const participantRows = rows.filter(row => row.name.trim());
+  const playerCount = participantRows.length;
+  const selectedClubs = clubSlots.map(slot => slot.club).filter(Boolean);
+  const canDrawClubs = playerCount > 0 && selectedClubs.length >= playerCount;
 
   useEffect(() => {
-    setSelectedClubs(prev => Array.from({ length: existingNames.length }, (_, index) => prev[index] || null));
-  }, [existingNames.length]);
+    if (!cfg.hasClub) return;
+    setClubSlots(prev => prev.length < playerCount ? appendClubSlots(prev, playerCount - prev.length) : prev);
+  }, [cfg.hasClub, playerCount]);
 
   function updateRow(id, patch) {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
@@ -84,10 +96,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
   }
 
   function distributeRandomClubs() {
-    const participantRows = rows.filter(row => row.name.trim());
-    if (!participantRows.length) return;
-
-    if (selectedClubs.length !== participantRows.length || selectedClubs.some(club => !club)) return;
+    if (!canDrawClubs) return;
     const lastClubs = getLastClubsByPlayer(history, sport, FOOTBALL);
     const clubsByRowId = assignRandomClubs(participantRows, selectedClubs, lastClubs);
 
@@ -156,29 +165,44 @@ export default function TournamentSetupForm({ sport, onCreated }) {
         >
           + Добавить участника
         </button>
-        {sport === FOOTBALL_DOUBLES && <DoublesClubPicker clubs={clubPool} onChange={setClubPool} playerCount={existingNames.length} allowNone />}
+        {sport === FOOTBALL_DOUBLES && <DoublesClubPicker clubs={clubPool} onChange={setClubPool} playerCount={playerCount} allowNone />}
         {cfg.hasClub && (
           <div className="random-clubs-panel">
             <div className="random-clubs-heading">Выберите клубы для распределения</div>
-            {existingNames.length > 0 && (
+            {clubSlots.length > 0 && (
               <div className="random-club-fields">
-                {selectedClubs.map((club, index) => (
-                  <div key={index} className="random-club-field">
+                {clubSlots.map(({ id, club }, index) => (
+                  <div key={id} className="random-club-field">
                     <span>Клуб {index + 1}</span>
-                    <ClubAutocomplete
-                      club={club}
-                      onSelect={value => setSelectedClubs(prev => prev.map((selected, selectedIndex) => selectedIndex === index ? value : selected))}
-                    />
+                    <div className="random-club-input">
+                      <ClubAutocomplete
+                        club={club}
+                        onSelect={value => setClubSlots(prev => prev.map(slot => slot.id === id ? { ...slot, club: value } : slot))}
+                      />
+                      {clubSlots.length > playerCount && (
+                        <button
+                          type="button"
+                          className="p-remove"
+                          aria-label={`Убрать клуб ${index + 1}`}
+                          onClick={() => setClubSlots(prev => prev.filter(slot => slot.id !== id))}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
             <div className="random-clubs-controls">
-              <button type="button" className="btn btn-secondary" onClick={distributeRandomClubs} disabled={!existingNames.length || selectedClubs.length !== existingNames.length || selectedClubs.some(club => !club)}>
+              <button type="button" className="btn btn-secondary" onClick={() => setClubSlots(prev => appendClubSlots(prev, 1))}>
+                + Добавить клуб
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={distributeRandomClubs} disabled={!canDrawClubs}>
                 🎲 Распределить
               </button>
             </div>
-            <div className="field-hint">Количество полей соответствует количеству заполненных участников. Выберите клуб в каждом поле, затем распределите их случайно.</div>
+            <div className="field-hint">Выберите не меньше клубов, чем участников. Каждый получит по одному клубу, остальные останутся в списке.</div>
           </div>
         )}
         <div className="field-hint" style={{ marginTop: 6 }}>
@@ -190,9 +214,9 @@ export default function TournamentSetupForm({ sport, onCreated }) {
         </div>
       </div>
 
-      {existingNames.length > 0 && (
+      {playerCount > 0 && (
         <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          <span className="tag">{existingNames.length} {cfg.unitNoun}</span>
+          <span className="tag">{playerCount} {cfg.unitNoun}</span>
         </div>
       )}
 

@@ -3,7 +3,7 @@ import { listHistory, reopenFinishedTournament } from '../../services/tournament
 import { computeTournamentResult } from '../../utils/computeStats.js';
 import { buildLadderRanking } from '../../utils/ladder.js';
 import { aggregateAmericanoPairStats } from '../../utils/americano.js';
-import { DRAW_LABEL, computeMatchStats, getScores, pluralPlayers } from '../../utils/teamMatchLog.js';
+import { DRAW_LABEL, computeMatchStats, getScores, getTopScorers, pluralPlayers } from '../../utils/teamMatchLog.js';
 import { SPORT_CONFIG, getSportConfig, FOOTBALL } from '../../utils/sportConfig.js';
 import HistoryModal from './HistoryModal.jsx';
 import RecordsGrid from './RecordsGrid.jsx';
@@ -87,7 +87,7 @@ function aggregateTeamMatchStats(history) {
     computeMatchStats(entry).forEach(row => {
       if (!allStats[row.name]) {
         allStats[row.name] = {
-          played: 0, goals: 0, assists: 0, wins: 0, draws: 0, losses: 0, bestPlayerAwards: 0,
+          played: 0, goals: 0, assists: 0, wins: 0, draws: 0, losses: 0,
         };
       }
       const s = allStats[row.name];
@@ -97,20 +97,12 @@ function aggregateTeamMatchStats(history) {
       if (row.result === 'win') s.wins++;
       else if (row.result === 'loss') s.losses++;
       else s.draws++;
-      if (entry.bestPlayer === row.name) s.bestPlayerAwards++;
     });
   });
   return Object.entries(allStats).sort(([nameA, a], [nameB, b]) =>
     matchPoints(b) - matchPoints(a)
     || b.goals - a.goals || b.assists - a.assists || a.played - b.played
     || nameA.localeCompare(nameB, 'ru'));
-}
-
-// Лидер по показателю (голы/пасы) — для бейджей 👟 и 🅰️. Таблица отсортирована
-// по очкам, поэтому лидер не обязательно первая строка. При равенстве бейдж
-// получают все, у кого максимум.
-function leaderValue(sortedStats, key) {
-  return sortedStats.reduce((max, [, s]) => Math.max(max, s[key]), 0);
 }
 
 function metaLabel(entry, cfg) {
@@ -226,8 +218,9 @@ export default function HistoryList() {
     : isTeamMatchLog ? aggregateTeamMatchStats(periodHistory)
     : aggregateStats(periodHistory);
   const records = computeRecords(periodHistory, cfg);
-  const topGoals = isTeamMatchLog ? leaderValue(sortedStats, 'goals') : 0;
-  const topAssists = isTeamMatchLog ? leaderValue(sortedStats, 'assists') : 0;
+  const teamMatchStats = isTeamMatchLog ? sortedStats.map(([, stats]) => stats) : [];
+  const topScorers = new Set(getTopScorers(teamMatchStats));
+  const topAssists = teamMatchStats.reduce((max, stats) => Math.max(max, stats.assists), 0);
   const listDesc = periodHistory; // already sorted newest-first by listHistory()
   const totalPages = Math.max(1, Math.ceil(listDesc.length / PAGE_SIZE));
   const pageItems = listDesc.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -350,7 +343,6 @@ export default function HistoryList() {
                   <th title="Очки: победа 3, ничья 1" aria-sort="descending">Очки</th>
                   <th>Матчей</th><th title="Победы">✅</th><th title="Ничьи">🤝</th><th title="Поражения">❌</th>
                   <th title="Личные голы / все сыгранные матчи">Голов за матч</th>
-                  <th title="Сколько раз выбран лучшим игроком матча">Лучший игрок</th>
                   <th title="Голы">⚽</th><th title="Голевые пасы">Пасы</th>
                   <th title="Голы + пасы">Г+П</th>
                 </tr>
@@ -359,7 +351,7 @@ export default function HistoryList() {
                 {sortedStats.map(([name, s]) => (
                   <tr key={name}>
                     <td>
-                      {topGoals > 0 && s.goals === topGoals ? '👟 ' : ''}
+                      {topScorers.has(s) ? '👟 ' : ''}
                       {topAssists > 0 && s.assists === topAssists ? '🅰️ ' : ''}
                       {name}
                     </td>
@@ -369,7 +361,6 @@ export default function HistoryList() {
                     <td>{s.draws}</td>
                     <td className="td-red">{s.losses}</td>
                     <td className="td-gold"><b>{goalsPerMatch(s).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></td>
-                    <td className="td-gold">{s.bestPlayerAwards}</td>
                     <td className="td-green">{s.goals}</td>
                     <td>{s.assists}</td>
                     <td className="td-green">{s.goals + s.assists}</td>

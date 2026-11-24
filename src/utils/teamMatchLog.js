@@ -207,21 +207,23 @@ export function computeMatchStats(match) {
   return rows.sort((a, b) => b.goals - a.goals || a.name.localeCompare(b.name, 'ru'));
 }
 
+export function getTopScorers(rows) {
+  const mostGoals = rows.reduce((max, row) => Math.max(max, row.goals), 0);
+  if (mostGoals === 0) return [];
+  const goalLeaders = rows.filter(row => row.goals === mostGoals);
+  const mostAssists = goalLeaders.reduce((max, row) => Math.max(max, row.assists), 0);
+  return goalLeaders.filter(row => row.assists === mostAssists);
+}
+
 export function matchResult(match) {
   const teams = getTeams(match);
   const [s1, s2] = getScores(match);
   const draw = s1 === s2;
   const rows = computeMatchStats(match);
-  const leadingGoals = rows[0]?.goals || 0;
-  const leaders = rows.filter(row => leadingGoals > 0 && row.goals === leadingGoals);
-  const winningLeaders = leaders.filter(row => row.result === 'win');
-  const topScorerCandidates = winningLeaders.length ? winningLeaders : leaders;
   const topAssist = [...rows].sort((a, b) => b.assists - a.assists || a.name.localeCompare(b.name, 'ru'))[0];
   return {
     winner: draw ? DRAW_LABEL : (s1 > s2 ? teams[0].name : teams[1].name),
     draw,
-    topScorerCandidates,
-    topScorer: topScorerCandidates.find(row => row.name === match.topScorerName) ?? topScorerCandidates[0] ?? null,
     topAssist: topAssist && topAssist.assists > 0 ? topAssist : null,
   };
 }

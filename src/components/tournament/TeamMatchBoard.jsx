@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   attributedAssists, computeMatchStats, creditedGoals, dateInputValue, formatMatchDate,
-  getScores, getTeams, hasTeams, ownGoalsTotal, pluralGoals, pluralMatches, pluralPlayers, timestampFromDateInput,
+  getScores, getTeams, getTopScorers, hasTeams, ownGoalsTotal, pluralGoals, pluralMatches, pluralPlayers, timestampFromDateInput,
 } from '../../utils/teamMatchLog.js';
 
 // Счётчик «− n +» у игрока: голы, пасы или автоголы.
@@ -44,6 +44,7 @@ export default function TeamMatchBoard({
   const canEdit = editable && !isFinished;
   const split = hasTeams(tournament);
   const rows = computeMatchStats(tournament);
+  const topScorers = isFinished ? getTopScorers(rows) : [];
   const rowByName = Object.fromEntries(rows.map(row => [row.name, row]));
   const contributors = rows.filter(row => row.goals > 0 || row.assists > 0 || row.ownGoals > 0);
 
@@ -133,8 +134,10 @@ export default function TeamMatchBoard({
 
       {addPlayerForm}
 
-      {isFinished && tournament.bestPlayer && (
-        <div className="tml-match-meta">⭐ Лучший игрок матча — {tournament.bestPlayer}</div>
+      {topScorers.length > 0 && (
+        <div className="tml-match-meta">
+          👟 {topScorers.length === 1 ? 'Лучший бомбардир' : 'Лучшие бомбардиры'} — {topScorers.map(row => row.name).join(', ')} · {pluralGoals(topScorers[0].goals)}
+        </div>
       )}
 
       <div className="tml-scoreboard">

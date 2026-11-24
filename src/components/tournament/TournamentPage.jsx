@@ -8,7 +8,6 @@ import EditScoreConfirmModal from './EditScoreConfirmModal.jsx';
 import TurnikLadder from './TurnikLadder.jsx';
 import AmericanoBoard from './AmericanoBoard.jsx';
 import TeamMatchBoard from './TeamMatchBoard.jsx';
-import FinishTeamMatchModal from './FinishTeamMatchModal.jsx';
 import AddParticipantForm from './AddParticipantForm.jsx';
 import ChangeDoublesFormat from './ChangeDoublesFormat.jsx';
 import { changeDoublesFormat } from '../../utils/changeDoublesFormat.js';
@@ -34,10 +33,8 @@ import { getPlayerProfiles, staminaMap } from '../../services/playerProfiles.js'
 import { FOOTBALL, FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
 import { addParticipant } from '../../utils/participantActions.js';
 import { removeParticipant } from '../../utils/removeParticipant.js';
-import { DRAW_LABEL, getScores, matchResult, pluralGoals, validateMatch } from '../../utils/teamMatchLog.js';
+import { DRAW_LABEL, getScores } from '../../utils/teamMatchLog.js';
 
-// В «реальном футболе» нет чемпиона турнира — есть победитель одного матча
-// (или ничья), а лучший бомбардир идёт отдельной строкой.
 const TEAM_MATCH_BANNER = {
   reopenLabel: '↩️ Вернуть матч (исправить)',
   newLabel: '🔁 Новый матч',
@@ -45,17 +42,13 @@ const TEAM_MATCH_BANNER = {
 };
 
 function teamMatchBannerProps(tournament) {
-  const { draw, topScorer } = matchResult(tournament);
   const [s1, s2] = getScores(tournament);
-  const scoreLine = `${s1} : ${s2}`;
-  const scorerLine = topScorer
-    ? ` · 👟 ${topScorer.name} — ${pluralGoals(topScorer.goals)}`
-    : ' · голов никто не забил';
+  const draw = s1 === s2;
   return {
     ...TEAM_MATCH_BANNER,
     label: draw ? 'Итог матча' : 'Победитель матча',
     icon: draw ? '🤝' : '🏆',
-    subText: `${scoreLine}${scorerLine}`,
+    subText: `${s1} : ${s2}`,
   };
 }
 
@@ -157,15 +150,16 @@ export default function TournamentPage({ onHome }) {
       setAdvanceError(err.message);
     }
   }
-  function requestTeamMatchFinish() {
-    const error = validateMatch(tournament);
-    setAdvanceError(error);
-    if (!error) setFinishingMatch(true);
-  }
-  async function confirmTeamMatchFinish(bestPlayer, topScorerName) {
-    const saved = await mutate(draft => finishMatch(draft, bestPlayer, topScorerName), { optimistic: false });
-    if (saved) setFinishingMatch(false);
-    return saved;
+  async function handleTeamMatchFinish() {
+    setAdvanceError(null);
+    setFinishingMatch(true);
+    try {
+      await mutate(finishMatch, { optimistic: false });
+    } catch (err) {
+      setAdvanceError(err.message);
+    } finally {
+      setFinishingMatch(false);
+    }
   }
   // Сила игроков считается по всем реальным матчам (включая открытые), поэтому
   // перед делением подтягиваем свежий список с сервера.
@@ -288,7 +282,7 @@ export default function TournamentPage({ onHome }) {
       {isTeamMatchLog && (
         <TeamMatchBoard
           tournament={tournament}
-          editable={editable}
+          editable={editable && !finishingMatch}
           onRenameTeam={(side, name) => runTeamMatchAction(draft => renameTeam(draft, side, name))}
           onSetScore={(side, value) => runTeamMatchAction(draft => setScore(draft, side, value))}
           onSetDate={ts => runTeamMatchAction(draft => setPlayedAt(draft, ts))}
@@ -301,7 +295,7 @@ export default function TournamentPage({ onHome }) {
           onBalance={handleBalance}
           balancing={balancing}
           balanceInfo={balanceInfo}
-          onFinish={requestTeamMatchFinish}
+          onFinish={handleTeamMatchFinish}
         />
       )}
 
@@ -347,7 +341,7 @@ export default function TournamentPage({ onHome }) {
         />
       )}
 
-      {editable && <ParticipantRemoval key={`remove-${tournament.id}`} tournament={tournament} onRemove={handleRemoveParticipant} />}
+      {editable && !finishingMatch && <ParticipantRemoval key={`remove-${tournament.id}`} tournament={tournament} onRemove={handleRemoveParticipant} />}
 
       <div className="tournament-delete-controls">
         <DeleteTournamentButton tournament={tournament} onDeleted={onHome} />
@@ -357,15 +351,6 @@ export default function TournamentPage({ onHome }) {
 
       {isBracketGroup && <PenaltyModal ctx={penaltyCtx} onConfirm={handleConfirmPenalty} onClose={() => setPenaltyCtx(null)} />}
       <EditScoreConfirmModal ctx={editCtx} onConfirm={confirmEdit} onClose={() => setEditCtx(null)} />
-      {isTeamMatchLog && editable && finishingMatch && (
-        <FinishTeamMatchModal
-          key={tournament.id}
-          match={tournament}
-          saveError={saveError}
-          onConfirm={confirmTeamMatchFinish}
-          onClose={() => setFinishingMatch(false)}
-        />
-      )}
     </div>
   );
 }
