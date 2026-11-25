@@ -9,7 +9,7 @@ import { useTournament } from '../../context/TournamentContext.jsx';
 import { listAll } from '../../services/tournaments.js';
 import { FOOTBALL, FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
 import { assignRandomClubs, getLastClubsByPlayer } from '../../utils/randomClubAssignment.js';
-import { MIN_TEAM_LOG_PLAYERS, getPreviousRealMatch } from '../../utils/teamMatchLog.js';
+import { MIN_TEAM_LOG_PLAYERS, getPreviousRealMatch, getTeams } from '../../utils/teamMatchLog.js';
 
 let rowIdCounter = 0;
 const DOUBLES_FORMATS = [
@@ -27,6 +27,29 @@ function appendClubSlots(slots, count) {
     id: lastId + index + 1,
     club: null,
   }))];
+}
+
+function PlayerSuggestions({ title, players, onAdd }) {
+  if (players.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 6 }}>{title}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {players.map(({ name, meta }) => (
+          <button
+            key={name}
+            type="button"
+            className="tag"
+            style={{ cursor: 'pointer', fontFamily: 'inherit' }}
+            onClick={() => onAdd(name, meta)}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function TournamentSetupForm({ sport, onCreated }) {
@@ -64,6 +87,18 @@ export default function TournamentSetupForm({ sport, onCreated }) {
   const history = useMemo(() => tournaments
     .filter(tournament => tournament.status === 'finished'), [tournaments]);
   const knownPlayers = useKnownPlayers(cfg.engine === 'americano' ? tournaments : history, sport);
+  const { lastMatchPlayers, otherKnownPlayers } = useMemo(() => {
+    if (cfg.engine !== 'team-match-log') {
+      return { lastMatchPlayers: [], otherKnownPlayers: knownPlayers };
+    }
+
+    const lastMatch = getPreviousRealMatch(tournaments);
+    const lastMatchNames = new Set(getTeams(lastMatch).flatMap(team => team.players));
+    return {
+      lastMatchPlayers: [...lastMatchNames].sort().map(name => ({ name, meta: null })),
+      otherKnownPlayers: knownPlayers.filter(({ name }) => !lastMatchNames.has(name)),
+    };
+  }, [cfg.engine, knownPlayers, tournaments]);
   const participantRows = rows.filter(row => row.name.trim());
   const playerCount = participantRows.length;
   const selectedClubs = clubSlots.map(slot => slot.club).filter(Boolean);
@@ -220,23 +255,8 @@ export default function TournamentSetupForm({ sport, onCreated }) {
         </div>
       )}
 
-      {knownPlayers.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginBottom: 6 }}>Известные игроки (нажми чтобы добавить):</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {knownPlayers.map(({ name: pName, meta }) => (
-              <span
-                key={pName}
-                className="tag"
-                style={{ cursor: 'pointer' }}
-                onClick={() => addKnownPlayer(pName, meta)}
-              >
-                {pName}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      <PlayerSuggestions title="Игроки последнего матча" players={lastMatchPlayers} onAdd={addKnownPlayer} />
+      <PlayerSuggestions title="Известные игроки (нажми чтобы добавить)" players={otherKnownPlayers} onAdd={addKnownPlayer} />
 
       {(cfg.engine === 'bracket-group' || supportsDoublesLeague) && (
         <div style={{ marginTop: 16 }}>
