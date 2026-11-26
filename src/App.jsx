@@ -1,15 +1,16 @@
 import React from 'react';
-import { HashRouter, Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { HashRouter, Link, Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { TournamentProvider, useTournament } from './context/TournamentContext.jsx';
 import Header from './components/Header.jsx';
 import LoadingOverlay from './components/LoadingOverlay.jsx';
 import SportSelectScreen from './components/home/SportSelectScreen.jsx';
 import TournamentSetupForm from './components/home/TournamentSetupForm.jsx';
 import ActiveTournamentsList from './components/home/ActiveTournamentsList.jsx';
+import PlayerStaminaPage from './components/football/PlayerStaminaPage.jsx';
 import TournamentPage from './components/tournament/TournamentPage.jsx';
 import HistoryList from './components/history/HistoryList.jsx';
 import ViewOnlyPage from './components/viewonly/ViewOnlyPage.jsx';
-import { SPORT_CONFIG } from './utils/sportConfig.js';
+import { FOOTBALL_REAL, SPORT_CONFIG } from './utils/sportConfig.js';
 
 function AppLayout() {
   const navigate = useNavigate();
@@ -41,7 +42,10 @@ function CreateTournamentPage() {
 
   return (
     <>
-      <button className="pause-btn" style={{ marginBottom: 14 }} onClick={() => navigate('/')}>← Сменить вид спорта</button>
+      <div className="sport-page-actions">
+        <button className="pause-btn" onClick={() => navigate('/')}>← Сменить вид спорта</button>
+        {sport === FOOTBALL_REAL && <Link className="pause-btn" to="stamina">Выносливость игроков</Link>}
+      </div>
       <TournamentSetupForm sport={sport} onCreated={() => navigate('/tournament')} />
       <ActiveTournamentsList sport={sport} onOpen={() => navigate('/tournament')} />
     </>
@@ -87,6 +91,7 @@ export default function App() {
         <Route element={<TournamentProvider><AppLayout /></TournamentProvider>}>
           <Route path="/" element={<HomePage />} />
           <Route path="/create/:sport" element={<CreateTournamentPage />} />
+          <Route path={`/create/${FOOTBALL_REAL}/stamina`} element={<PlayerStaminaPage />} />
           <Route path="/tournament" element={<TournamentRoute />} />
           <Route path="/tournaments" element={<TournamentsPage />} />
           <Route path="/history" element={<HistoryList />} />

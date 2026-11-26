@@ -74,6 +74,20 @@ test('first match without history still includes everyone with balanced rosters'
   assert.equal(Math.abs(teams[0].players.length - teams[1].players.length), 1);
 });
 
+test('creation picks the closest teams using both ratings and stamina', t => {
+  t.mock.method(Math, 'random', () => 0.99);
+  const match = buildTournamentPayload({
+    name: 'Новый матч',
+    sport: 'football-real',
+    participants: ['A', 'B', 'C', 'D'].map(name => ({ name })),
+    ratings: { A: { rating: 4 }, B: { rating: 3 }, C: { rating: 1 }, D: { rating: 0 } },
+    stamina: { A: 10, B: 4, C: 5, D: 8 },
+  });
+
+  assert.deepEqual(match.teams.map(team => team.players), [['A', 'C'], ['B', 'D']]);
+  assert.deepEqual(match.scores, [0, 0]);
+});
+
 test('rejects a four-player rematch when only a complete side swap could replace two players', () => {
   assert.throws(() => buildTeams(['A', 'B', 'E', 'F'], previousTeams), /минимум двух/);
 });

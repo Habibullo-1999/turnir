@@ -141,8 +141,12 @@ export function splitTeams(players, previousTeams = []) {
 }
 
 export function buildTeams(players, previousTeams = []) {
-  return splitTeams(players, previousTeams).map((roster, side) => ({
-    name: previousTeams[side]?.name || DEFAULT_TEAM_NAMES[side],
+  return teamsFromRosters(splitTeams(players, previousTeams), previousTeams);
+}
+
+export function teamsFromRosters(rosters, teams = []) {
+  return rosters.map((roster, side) => ({
+    name: teams[side]?.name || DEFAULT_TEAM_NAMES[side],
     players: roster,
     goals: {},
     assists: {},

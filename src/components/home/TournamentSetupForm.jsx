@@ -7,6 +7,7 @@ import { useKnownPlayers } from '../../hooks/useKnownPlayers.js';
 import { buildTournamentPayload } from '../../utils/createTournamentPayload.js';
 import { useTournament } from '../../context/TournamentContext.jsx';
 import { listAll } from '../../services/tournaments.js';
+import { loadTeamBalanceData } from '../../services/teamBalance.js';
 import { FOOTBALL, FOOTBALL_DOUBLES, getSportConfig } from '../../utils/sportConfig.js';
 import { assignRandomClubs, getLastClubsByPlayer } from '../../utils/randomClubAssignment.js';
 import { MIN_TEAM_LOG_PLAYERS, getPreviousRealMatch, getTeams } from '../../utils/teamMatchLog.js';
@@ -148,15 +149,17 @@ export default function TournamentSetupForm({ sport, onCreated }) {
     setError(null);
     setCreating(true);
     try {
-      const previousMatch = cfg.engine === 'team-match-log'
-        ? getPreviousRealMatch(await listAll())
-        : null;
+      const balance = cfg.engine === 'team-match-log' ? await loadTeamBalanceData() : null;
       const payload = buildTournamentPayload({
         name,
         participants: rows.map(r => ({ name: r.name, club: r.club })),
         format,
         sport,
-        previousMatch,
+        ...(balance ? {
+          previousMatch: getPreviousRealMatch(balance.tournaments),
+          ratings: balance.ratings,
+          stamina: balance.stamina,
+        } : {}),
         ...(sport === FOOTBALL_DOUBLES ? { clubPool } : {}),
       });
       await startTournament(payload);
@@ -245,7 +248,7 @@ export default function TournamentSetupForm({ sport, onCreated }) {
           {cfg.engine === 'turnik-ladder' && `Минимум 2 ${cfg.unitNoun}.`}
           {cfg.engine === 'americano' && `Минимум ${cfg.minParticipants || 3} участника. Пары формируются случайно и меняются каждый раунд.${cfg.allowUnevenTeams === false ? ' Лишние игроки отдыхают: каждый матч строго 2×2.' : ''}`}
           {supportsDoublesLeague && format === 'league' && ' Во втором круге те же пары играют ответные матчи, поменявшись дома и в гостях. Зачёт парный: победа — 3 очка, ничья — 1.'}
-          {cfg.engine === 'team-match-log' && `Минимум ${MIN_TEAM_LOG_PLAYERS} игроков. Состав каждой команды меняется минимум на двух игроков относительно последнего матча, включая активный. При нечётном числе игроков в одной команде будет на одного больше. Составы потом можно поправить.`}
+          {cfg.engine === 'team-match-log' && `Минимум ${MIN_TEAM_LOG_PLAYERS} игроков. Команды подбираются по результатам прошлых матчей и выносливости. По возможности в каждой команде меняются минимум два игрока по сравнению с последним составом. При нечётном числе игроков в одной команде будет на одного больше.`}
         </div>
       </div>
 

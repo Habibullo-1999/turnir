@@ -1,5 +1,5 @@
 import {
-  attributedAssists, buildTeams, creditedGoals, getScores, getTeams, matchResult, ownGoalsTotal, validateMatch,
+  attributedAssists, buildTeams, creditedGoals, getScores, getTeams, matchResult, ownGoalsTotal, teamsFromRosters, validateMatch,
 } from './teamMatchLog.js';
 
 // Мутаторы матча. Как и остальные *Actions.js — чистые функции над черновиком
@@ -166,9 +166,7 @@ export function applyTeams(draft, rosters) {
   if (assigned.length !== players.size || assigned.some(player => !players.has(player))) {
     throw new Error('Состав участников изменился — попробуйте ещё раз.');
   }
-  writeTeams(draft, rosters.map((roster, side) => ({
-    name: teams[side].name, players: roster, goals: {}, assists: {}, ownGoals: {},
-  })));
+  writeTeams(draft, teamsFromRosters(rosters, teams));
   writeScores(draft, [0, 0]);
 }
 

@@ -8,7 +8,7 @@ export function useKnownPlayers(history, sport = FOOTBALL) {
   return useMemo(() => {
     const sameSport = history.filter(entry => (entry.sport || FOOTBALL) === sport);
     const names = new Set();
-    sameSport.forEach(entry => (entry.players || []).forEach(p => names.add(p)));
+    sameSport.forEach(entry => Object.values(entry.players || {}).filter(Boolean).forEach(name => names.add(name)));
 
     return [...names].sort().map(name => {
       // Tournaments are newest-first, so the first match here

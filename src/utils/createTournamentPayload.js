@@ -3,11 +3,12 @@ import { buildGroups, buildLeague } from './groups.js';
 import { buildAmericanoRounds } from './americano.js';
 import { getSportConfig, FOOTBALL, FOOTBALL_DOUBLES, TURNIK } from './sportConfig.js';
 import { completeFootballDoublesSchedule } from './footballDoublesSchedule.js';
-import { MIN_TEAM_LOG_PLAYERS, buildTeams, getTeams } from './teamMatchLog.js';
+import { MIN_TEAM_LOG_PLAYERS, getTeams, teamsFromRosters } from './teamMatchLog.js';
+import { balanceTeams } from './teamBalance.js';
 import { distributeDoublesClubs } from './doublesClubs.js';
 
 // participants: [{ name: string, club: {club,league,flag,icon} | null }]
-export function buildTournamentPayload({ name, participants, format, sport = FOOTBALL, clubPool, previousMatch }) {
+export function buildTournamentPayload({ name, participants, format, sport = FOOTBALL, clubPool, previousMatch, ratings, stamina }) {
   const cfg = getSportConfig(sport);
 
   if (cfg.engine === 'turnik-ladder') {
@@ -39,14 +40,16 @@ export function buildTournamentPayload({ name, participants, format, sport = FOO
     if (duplicate) {
       throw new Error(`Игрок «${duplicate}» указан дважды — имена должны быть уникальными.`);
     }
+    const previousTeams = previousMatch ? getTeams(previousMatch).map(({ name, players }) => ({ name, players })) : [];
+    const { teams } = balanceTeams(names, ratings, previousTeams, [], { stamina, closestOnly: true });
     return {
       name: name.trim() || 'Матч',
       sport,
       players: names,
       playedAt: Date.now(),
       scores: [0, 0],
-      teams: buildTeams(names, previousMatch ? getTeams(previousMatch) : []),
-      ...(previousMatch ? { previousMatchId: previousMatch.id, previousTeams: getTeams(previousMatch).map(({ name, players }) => ({ name, players })) } : {}),
+      teams: teamsFromRosters(teams, previousTeams),
+      ...(previousMatch ? { previousMatchId: previousMatch.id, previousTeams } : {}),
     };
   }
 
